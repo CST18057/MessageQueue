@@ -9,13 +9,44 @@ using namespace std;
 #include <unordered_set>
 #include <unordered_map>
 
-const unordered_map<string, function<string(JsonObject &obj)>> callFunName =
+const unordered_map<string, function<void(const JsonObject &obj, Scheduler &scheduler)>> callFunName =
 {
-    {},
-    {},
-    {},
-    {},
-    {},
+    {
+        "add",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
+    {
+        "read",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
+    {
+        "readgroup",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
+    {
+        "create",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
+    {
+        "ack",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
+    {
+        "del",[](const JsonObject &obj, Scheduler &scheduler) -> void
+        {
+
+        }
+    },
 };
 
 //class LinkList
@@ -220,9 +251,9 @@ string Scheduler::packageMessage(int code, const string &data)
     if(code == 0)
     {
         JsonObject obj(
-            unordered_map<string,JsonObject*>{
-                {"code",new JsonObject(code)},
-                {"data",new JsonObject(data)}
+            JsonDict{
+                {"code",JSONOBJECT(code)},
+                {"data",JSONOBJECT(data)}
             }
         );
         return obj.json();
@@ -230,9 +261,9 @@ string Scheduler::packageMessage(int code, const string &data)
     else
     {
         JsonObject obj(
-            unordered_map<string,JsonObject*>{
-                {"code",new JsonObject(code)},
-                {"error",new JsonObject(data)}
+            JsonDict{
+                {"code",JSONOBJECT(code)},
+                {"error",JSONOBJECT(data)}
             }
         );
         return obj.json();
@@ -243,9 +274,9 @@ string Scheduler::packageMessage(int code, const string &data)
 string Scheduler::packageMessage(int code, const JsonObject& data)
 {
     JsonObject obj(
-        unordered_map<string,JsonObject*>{
-            {"code",new JsonObject(code)},
-            {"data",new JsonObject(data)}
+        JsonDict{
+            {"code",JSONOBJECT(code)},
+            {"data",JSONOBJECT(data)}
         }
     );
     return obj.json();
@@ -302,7 +333,7 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         // 不等待直接返回
         if(block == 0)
         {
-            response(packageMessage(0, JsonObject(vector<JsonObject *>{})));
+            response(packageMessage(0, JsonObject(JsonArray{})));
             return;
         }
 
@@ -323,15 +354,16 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         return;
     }
     JsonObject vj(
-        vector<JsonObject *>{}
+        JsonArray{}
     );
     while(count--)
     {
         if(q.Messages.getNext(g.lastId) == q.Messages.end())
             break;
         g.lastId = q.Messages.getNext(g.lastId);
-        vj.asArray().push_back(new JsonObject(q.messagePool.get(g.lastId).data));
+        vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
     }
+    needWriteClients.insert(nowClient);
     response(packageMessage(0, vj));
 }
 void Scheduler::addMessage(const string &queue, const string& data)
@@ -363,7 +395,7 @@ void Scheduler::addMessage(const string &queue, const string& data)
             string consumer = *it;
             Consumer &c = g.consumers[consumer];
             JsonObject vj(
-                vector<JsonObject *>{}
+                JsonArray{}
             );
             int count = c.exceptMessageSize;
             vector<int> messageIds;
@@ -373,10 +405,13 @@ void Scheduler::addMessage(const string &queue, const string& data)
                     break;
                 g.lastId = q.Messages.getNext(g.lastId);
                 messageIds.push_back(g.lastId);
-                vj.asArray().push_back(new JsonObject(q.messagePool.get(g.lastId).data));
+                vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
+                // 将此条消息加入到所在消费者组pendingMessages，并更新messageInfos
+                //  ****
             }
             for(int i : messageIds)
                 c.messages.pushBack(i);
+            needWriteClients.insert(c.clientFd);
             response(packageMessage(0, vj), c.clientFd);
             // 从等待消费者中移除
             g.waitConsumers.erase(it);
@@ -472,7 +507,10 @@ void Scheduler::delGroup(const string &queue, const string &group)
     response(packageMessage(CMD_OK, "remove group success:" + group));
 }
 void Scheduler::ackMessage(const string &queue, const string &group, int MessageId){}
+void Scheduler::parse(int clientFd, const JsonObject &obj)
+{
 
+}
 //linux下
 #ifdef __linux__
 #include <stdio.h>
@@ -609,8 +647,15 @@ int sendMsg(int targetFd, char buf[], int size)
     return n;
 }
 
+void closeSocket(int socketFd)
+{
+    cout << "socket id:" << socketFd << " is closed" << endl;
+    close(socketFd);
+}
 
-void polling(int serverFd, ClientManager cm)
+const int ALL_OP = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLOUT;
+
+void polling(int serverFd, Scheduler scheduler)
 {
     setnonblocking(serverFd);
     struct epoll_event ev, events[MAXSIZE];
@@ -624,8 +669,6 @@ void polling(int serverFd, ClientManager cm)
     }
     addEvent(epfd, serverFd, EPOLLIN | EPOLLERR | EPOLLHUP);
     printf("======waiting for client's request======\n");
-    MessageManager pre = cm.mm;
-    cout << cm.mm << endl;
     int epollDelayTime = 0;
     while (true)
     {
@@ -657,47 +700,53 @@ void polling(int serverFd, ClientManager cm)
                     {
                         printf("accept Client[%d]\n", clientFd);
                         setnonblocking(clientFd);
-                        addEvent(epfd, clientFd, EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLOUT);
-                        cm.addUser(clientFd);
+                        addEvent(epfd, clientFd, EPOLLIN | EPOLLERR | EPOLLHUP);
+                        scheduler.addClient(clientFd);
                     }
                     continue;
                 }
+                // 传来连接挂断或错误消息时
                 if ((events[i].events & EPOLLHUP) || (events[i].events & EPOLLERR))
                 {
                     printf("%d client err\n", clientFd);
-                    delClient(epfd, clientFd, cm);
+                    scheduler.delClient(clientFd);
+                    delEvent(epfd, clientFd);
                     continue;
                 }
+                // 当有输入缓冲时
                 if (events[i].events & EPOLLIN)
                 {
                     cout << "正在拉取缓冲区" << endl;
-                    int n = cm.users[clientFd].pull();
+                    int n = scheduler.clients[clientFd].pull();
                     printf("recv %d byte\n", n);
                     if (n < 0)
                     {
                         printf("%d close link\n", clientFd);
-                        delClient(epfd, clientFd, cm);
+                        scheduler.delClient(clientFd);
+                        delEvent(epfd, clientFd);
                         continue;
                     }
                     string s;
                     while (true)
                     {
-                        s = cm.users[clientFd].getMessage();
+                        s = scheduler.clients[clientFd].getMessage();
                         cout << "parse message:" << s << endl;
-                        cout << "readbuf size:" << cm.users[clientFd].readBuf.size() << endl;
+                        cout << "readbuf size:" << scheduler.clients[clientFd].readBuf.size() << endl;
                         cout << "readbuf:";
-                        for (int i = 0; i < cm.users[clientFd].readBuf.size(); i++)
-                            cout << cm.users[clientFd].readBuf[i];
+                        for (int i = 0; i < scheduler.clients[clientFd].readBuf.size(); i++)
+                            cout << scheduler.clients[clientFd].readBuf[i];
                         cout << endl;
                         if (s == "")
                             break;
-                        cm.parseMessage(clientFd, s);
+                        scheduler.parse(clientFd, s);
                     }
+
                 }
+                // 当有输出缓冲时
                 if (events[i].events & EPOLLOUT)
                 {
                     // cout << "正在写入缓冲区" << endl;
-                    cm.users[clientFd].push();
+                    scheduler.clients[clientFd].push();
                 }
             }
         }

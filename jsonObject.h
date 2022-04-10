@@ -18,11 +18,17 @@ enum ObjectType
     JSONARRAY,
     JSONINVALID
 };
+
+class JsonObject;
+using JsonObjectPtr = std::shared_ptr<JsonObject>;
+using JsonDict = std::unordered_map<std::string, JsonObjectPtr>;
+using JsonArray = std::vector<JsonObjectPtr>;
+#define JSONOBJECT(x) std::make_shared<JsonObject>(x)
+
 class JsonObject
 {
 public:
     JsonObject();
-    JsonObject(ObjectType t);
     JsonObject(const JsonObject &jo);
     explicit JsonObject(int pi);
     explicit JsonObject(long long pl);
@@ -30,17 +36,17 @@ public:
     explicit JsonObject(const char *ps);
     explicit JsonObject(double pd);
     explicit JsonObject(bool pb);
-    JsonObject(const std::unordered_map<std::string, JsonObject *> &pt);
-    JsonObject(const std::vector<JsonObject *> &pv);
-    static std::unique_ptr<JsonObject> decoder(std::string &s);
+    JsonObject(const JsonDict &pt);
+    JsonObject(const JsonArray &pv);
+    static JsonObjectPtr decoder(std::string &s);
     //采取左闭右开的方式
-    static JsonObject *findNextJsonObeject(std::string &s, int &sta, int &end);
-    static JsonObject *findNextNumber(std::string &s, int &sta, int &end);
-    static JsonObject *findNextString(std::string &s, int &sta, int &end);
-    static JsonObject *findNextDict(std::string &s, int &sta, int &end);
-    static JsonObject *findNextArray(std::string &s, int &sta, int &end);
-    static JsonObject *findNextBool(std::string &s, int &sta, int &end);
-    static JsonObject *findNextNullptr(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextJsonObeject(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextNumber(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextString(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextDict(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextArray(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextBool(std::string &s, int &sta, int &end);
+    static JsonObjectPtr findNextNullptr(std::string &s, int &sta, int &end);
     static inline int firstNonEmpty(std::string &s, int sta, int end, int step = 1, bool flag = true);
     static int skipEmptyOneChar(std::string &s, int sta, int end, char c);
     static void reportError(const char *s, int x, int y = -1);
@@ -50,11 +56,11 @@ public:
     long long asInt();
     double asDouble();
     std::string asString();
-    std::unordered_map<std::string, JsonObject *> &asDict();
-    std::vector<JsonObject *> &asArray();
+    JsonDict &asDict();
+    JsonArray &asArray();
     bool asBool();
     void *asNullptr();
-    static JsonObject *copy(const JsonObject &jo);
+    static JsonObjectPtr copy(const JsonObject &jo);
     std::string convert(bool reverse = false);
     static std::string convert(std::string s, bool reverse = false);
     std::string json();
@@ -70,8 +76,8 @@ private:
         long long i;
         double d;
         std::string s;
-        std::unordered_map<std::string, JsonObject *> t;
-        std::vector<JsonObject *> v;
+        JsonDict t;
+        JsonArray v;
     };
 };
 

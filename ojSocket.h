@@ -8,7 +8,7 @@
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
-#include "ojData.h"
+#include "jsonObject.h"
 
 #define BUFSIZE 4096
 #define MAXSIZE 1024
@@ -146,6 +146,8 @@ public:
     int lastId = -1;
     unordered_map<string, Consumer> consumers;
     unordered_set<string> waitConsumers;
+    unordered_map<int, MessageInfo<int>> messageInfos;
+    LinkList pendingMessages;
 };
 
 using ull = unsigned long long;
@@ -216,6 +218,8 @@ public:
     unordered_map<string, ConsumerGroup> groups;
     LinkList Messages;
     unordered_set<string> waitGroups;
+    // 用来存储持有消息但没有确认的消费者组
+    unordered_set<string> pendingGroups;
     // 用来存储block等待的连接
     unordered_set<int> waitConsumers;
 };
@@ -225,6 +229,7 @@ class Scheduler
 private:
     unordered_map<string, MessageQueue> messageQueues;
     unordered_map<int, ClientBuf> clients;
+    unordered_set<int> needWriteClients;
 
     // 阻塞消费者队列 ,存着pair first是阻塞最晚时间，second是该连接标识符
     set<pair<ull, int>> blockLink;
@@ -255,6 +260,7 @@ public:
     void delConsumer(const string &queue, const string &group, const string &consumer);
     string packageMessage(int code, const string &data);
     string packageMessage(int code, const JsonObject &data);
+    void parse(int clientFd, const JsonObject &obj);
 };
 
 
@@ -271,7 +277,7 @@ decltype(auto) invoke(Function&& func, Tuple&& t)
     return invoke_impl(std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
 }
 
-extern const unordered_map<string, function<string(JsonObject &obj)>> callFunName;
+extern const unordered_map<string, function<void(const JsonObject &obj, Scheduler &scheduler)>> callFunName;
 
 //header -> 四位int型，表示之后多少个字节是一整个数据包
 #define HEADER_SIZE 4
@@ -301,7 +307,7 @@ int recvMsg(int targetFd, char buf[]);
 int setnonblocking(int socketFd);
 
 
-void polling(int serverFdm);
+void polling(int serverFdm, Scheduler scheduler);
 
 void closeSocket(int socketFd);
 

@@ -34,56 +34,56 @@ std::string JsonObject::replace(std::string s, std::string old_s, std::string ne
     return res;
 }
 
-JsonObject *JsonObject::copy(const JsonObject &jo)
+JsonObjectPtr JsonObject::copy(const JsonObject &jo)
 {
-    vector<JsonObject *> pv;
-    unordered_map<string, JsonObject *> mp;
+    JsonArray pv;
+    JsonDict mp;
     switch (jo.type)
     {
     case JSONDOUBLE:
-        return new JsonObject(jo.d);
+        return JSONOBJECT(jo.d);
         break;
     case JSONINT:
-        return new JsonObject(jo.i);
+        return JSONOBJECT(jo.i);
         break;
     case JSONBOOL:
-        return new JsonObject(jo.b);
+        return JSONOBJECT(jo.b);
         break;
     case JSONNULLPTR:
-        return new JsonObject();
+        return JSONOBJECT();
         break;
     case JSONINVALID:
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
         break;
     case JSONSTRING:
-        return new JsonObject(jo.s);
+        return JSONOBJECT(jo.s);
         break;
     case JSONDICT:
-        for (pair<string, JsonObject *> p : jo.t)
+        for (pair<string, JsonObjectPtr > p : jo.t)
         {
-            mp.insert({p.first, copy(*p.second)});
+            mp.insert(make_pair(p.first, copy(*p.second)));
         }
-        return new JsonObject(mp);
+        return JSONOBJECT(mp);
         break;
     case JSONARRAY:
-        for (JsonObject *i : jo.v)
+        for (JsonObjectPtr i : jo.v)
         {
             pv.push_back(copy(*i));
         }
-        return new JsonObject(pv);
+        return JSONOBJECT(pv);
         break;
     default:
         break;
     }
-    return new JsonObject(JSONINVALID);
+    return JSONOBJECT(JSONINVALID);
 }
 
 JsonObject & JsonObject::operator=(const JsonObject &jo)
 {
     if (this == &jo)
         return *this;
-    std::vector<JsonObject *> pv;
-    std::unordered_map<std::string, JsonObject *> mp;
+    JsonArray pv;
+    JsonDict mp;
     type = jo.type;
     switch (jo.type)
     {
@@ -102,18 +102,18 @@ JsonObject & JsonObject::operator=(const JsonObject &jo)
         new (&s) std::string(jo.s);
         break;
     case JSONDICT:
-        for (pair<string, JsonObject *> p : jo.t)
+        for (pair<string, JsonObjectPtr > p : jo.t)
         {
-            mp.insert({p.first, copy(*p.second)});
+            mp.insert(make_pair(p.first, copy(*p.second)));
         }
-        new (&t) std::unordered_map<std::string, JsonObject *>(mp);
+        new (&t) JsonDict(mp);
         break;
     case JSONARRAY:
-        for (JsonObject *i : jo.v)
+        for (JsonObjectPtr i : jo.v)
         {
             pv.push_back(copy(*i));
         }
-        new (&v) std::vector<JsonObject *>(pv);
+        new (&v) JsonArray(pv);
         break;
     default:
         break;
@@ -123,8 +123,8 @@ JsonObject & JsonObject::operator=(const JsonObject &jo)
 
 JsonObject::JsonObject(const JsonObject &jo)
 {
-    vector<JsonObject *> pv;
-    unordered_map<string, JsonObject *> mp;
+    JsonArray pv;
+    JsonDict mp;
     type = jo.type;
     switch (jo.type)
     {
@@ -143,18 +143,18 @@ JsonObject::JsonObject(const JsonObject &jo)
         new (&s) std::string(jo.s);
         break;
     case JSONDICT:
-        for (pair<string, JsonObject *> p : jo.t)
+        for (pair<string, JsonObjectPtr > p : jo.t)
         {
-            mp.insert({p.first, copy(*p.second)});
+            mp.insert(make_pair(p.first, copy(*p.second)));
         }
-        new (&t) std::unordered_map<std::string, JsonObject *>(mp);
+        new (&t) JsonDict(mp);
         break;
     case JSONARRAY:
-        for (JsonObject *i : jo.v)
+        for (JsonObjectPtr i : jo.v)
         {
             pv.push_back(copy(*i));
         }
-        new (&v) std::vector<JsonObject *>(pv);
+        new (&v) JsonArray(pv);
         break;
     default:
         break;
@@ -162,7 +162,6 @@ JsonObject::JsonObject(const JsonObject &jo)
 }
 
 JsonObject::JsonObject() : type(JSONNULLPTR) {}
-JsonObject::JsonObject(ObjectType t) : type(t) {}
 JsonObject::JsonObject(int pi) : i(pi), type(JSONINT) {}
 JsonObject::JsonObject(long long pl) : i(pl), type(JSONINT) {}
 JsonObject::JsonObject(const std::string& ps) : type(JSONSTRING)
@@ -175,34 +174,36 @@ JsonObject::JsonObject(const char *ps) : type(JSONSTRING)
 }
 JsonObject::JsonObject(double pd) : d(pd), type(JSONDOUBLE) {}
 JsonObject::JsonObject(bool pb) : b(pb), type(JSONBOOL) {}
-JsonObject::JsonObject(const std::unordered_map<std::string, JsonObject *>& pt) : type(JSONDICT)
+JsonObject::JsonObject(const JsonDict& pt) : type(JSONDICT)
 {
-    new (&t) std::unordered_map<std::string, JsonObject *>(pt);
+    new (&t) JsonDict(pt);
 }
-JsonObject::JsonObject(const std::vector<JsonObject *>& pv) : type(JSONARRAY)
+JsonObject::JsonObject(const JsonArray& pv) : type(JSONARRAY)
 {
-    new (&v) std::vector<JsonObject *>(pv);
+    new (&v) JsonArray(pv);
 }
 JsonObject::~JsonObject()
 {
     switch (type)
     {
     case JSONSTRING:
-        s.~string();
         break;
+        s.~string();
     case JSONDICT:
-        for (pair<string, JsonObject *> p : t)
+        for (pair<string, JsonObjectPtr > p : t)
         {
-            delete p.second;
+            // delete p.second;
+            p.second.reset();
         }
-        t.~unordered_map<string, JsonObject *>();
+        t.~JsonDict();
         break;
     case JSONARRAY:
-        for (JsonObject *i : v)
+        for (JsonObjectPtr i : v)
         {
-            delete i;
+            // delete i;
+            i.reset();
         }
-        v.~vector<JsonObject *>();
+        v.~JsonArray();
         break;
     default:
         break;
@@ -231,13 +232,13 @@ std::string JsonObject::asString()
         throw "get value type error(string),correct type is " + string(ObjectTypeNames[(int)type]);
     return s;
 }
-std::unordered_map<std::string, JsonObject *>& JsonObject::asDict()
+JsonDict& JsonObject::asDict()
 {
     if (type != JSONDICT)
         throw "get value type error(dict),correct type is " + string(ObjectTypeNames[(int)type]);
     return t;
 }
-std::vector<JsonObject *>& JsonObject::asArray()
+JsonArray& JsonObject::asArray()
 {
     if (type != JSONARRAY)
         throw "get value type error(array),correct type is " + string(ObjectTypeNames[(int)type]);
@@ -352,7 +353,7 @@ std::string JsonObject::json()
         return convert();
         break;
     case JSONDICT:
-        for (pair<string, JsonObject *> p : t)
+        for (pair<string, JsonObjectPtr > p : t)
         {
             if (res != "")
                 res += ",";
@@ -361,7 +362,7 @@ std::string JsonObject::json()
         return "{" + res + "}";
         break;
     case JSONARRAY:
-        for (JsonObject *p : v)
+        for (JsonObjectPtr p : v)
         {
             if (res != "")
                 res += ",";
@@ -376,14 +377,14 @@ std::string JsonObject::json()
     }
 }
 
-std::unique_ptr<JsonObject> JsonObject::decoder(std::string &s)
+JsonObjectPtr JsonObject::decoder(std::string &s)
 {
     if (s.length() == 0)
-        return unique_ptr<JsonObject>(new JsonObject(JSONINVALID));
+        return JSONOBJECT(JSONINVALID);
     try
     {
         int sta = 0, end = s.length();
-        return unique_ptr<JsonObject>(findNextDict(s, sta, end));
+        return findNextDict(s, sta, end);
         // JsonObject* temp = findNextDict(s, sta, end);
         // JsonObject res = *temp;
         // delete temp;
@@ -394,19 +395,19 @@ std::unique_ptr<JsonObject> JsonObject::decoder(std::string &s)
         std::cout << "catch error char*" << endl;
         std::cout << "msg:" << s << endl;
         delete s;
-        return unique_ptr<JsonObject>(new JsonObject(JSONINVALID));
+        return JSONOBJECT(JSONINVALID);
     }
     catch (const char *s)
     {
         std::cout << "catch error const char*" << endl;
         std::cout << "msg:" << s << endl;
-        return unique_ptr<JsonObject>(new JsonObject(JSONINVALID));
+        return JSONOBJECT(JSONINVALID);
     }
     catch (string s)
     {
         std::cout << "catch error string" << endl;
         std::cout << "size:" << s.length() << "msg:" << s << endl;
-        return unique_ptr<JsonObject>(new JsonObject(JSONINVALID));
+        return JSONOBJECT(JSONINVALID);
     }
 }
 
@@ -453,15 +454,15 @@ void JsonObject::reportError(const char *s, int x, int y)
     throw res;
 }
 
-JsonObject *JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     sta = now;
     if (now == end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     char c = s[sta];
     // std::cout << "start char:" << s[sta] << endl;
-    JsonObject *temp = nullptr;
+    JsonObjectPtr temp = nullptr;
     if (c == '{')
         return findNextDict(s, sta, end);
     else if (c == '[')
@@ -476,7 +477,7 @@ JsonObject *JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end)
         return findNextNullptr(s, sta, end);
     else
         // throw "invalid json";
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     // if (temp->getType() == JSONINVALID)
     // {
     //     return
@@ -486,11 +487,11 @@ JsonObject *JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end)
     return temp;
 }
 
-JsonObject *JsonObject::findNextNumber(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextNumber(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     long long l;
     double d;
     char *pos;
@@ -501,7 +502,7 @@ JsonObject *JsonObject::findNextNumber(std::string &s, int &sta, int &end)
     int k = pos - ts;
     // std::cout << "number size:" << k << endl;
     if (k == 0)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     bool onlyDigit = true;
     for (int i = 0; i < k; i++)
         if (s[sta + i] != '-' && !isdigit(s[sta + i]))
@@ -515,53 +516,54 @@ JsonObject *JsonObject::findNextNumber(std::string &s, int &sta, int &end)
     {
         l = strtoll(ts, &pos, 0);
         delete ts;
-        return new JsonObject(l);
+        return JSONOBJECT(l);
     }
     else
     {
         delete ts;
-        return new JsonObject(d);
+        return JSONOBJECT(d);
     }
 }
-JsonObject *JsonObject::findNextBool(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextBool(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     if (end - sta >= 4 && s.substr(sta, 4) == "true")
     {
         sta += 4;
-        return new JsonObject(true);
+        return JSONOBJECT(true);
     }
     else if (end - sta >= 5 && s.substr(sta, 4) == "false")
     {
         sta += 5;
-        return new JsonObject(false);
+        return JSONOBJECT(false);
     }
-    return new JsonObject(JSONINVALID);
+    return JSONOBJECT(JSONINVALID);
 }
-JsonObject *JsonObject::findNextArray(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextArray(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     sta = now;
     if (s[now] != '[')
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     sta++;
-    JsonObject *temp;
-    vector<JsonObject *> vj;
+    JsonObjectPtr temp;
+    JsonArray vj;
     while (true)
     {
         sta = firstNonEmpty(s, sta, end);
         // cout << "array element begin:" << sta << endl;
         if (sta == end)
         {
-            for (JsonObject *i : vj)
+            for (JsonObjectPtr i : vj)
             {
-                delete i;
+                // delete i;
+                i.reset();
             }
-            return new JsonObject(JSONINVALID);
+            return JSONOBJECT(JSONINVALID);
             // reportError("type error:array,invalid json in char:{%d->%d}", sta, end);
         }
         if (s[sta] == ']')
@@ -574,57 +576,59 @@ JsonObject *JsonObject::findNextArray(std::string &s, int &sta, int &end)
         // cout << "array element:" << temp->getTypeStr() << endl;
         if (temp->getType() == JSONINVALID)
         {
-            for (JsonObject *i : vj)
+            for (JsonObjectPtr i : vj)
             {
-                delete i;
+                // delete i;
+                i.reset();
             }
             return temp;
             // reportError("type error:array,invalid json in char:{%d->%d}", sta, end);
         }
-        // JsonObject *value = new JsonObject(temp);
+        // JsonObjectPtr value = JSONOBJECT(temp);
         // vj.push_back(value);
         vj.push_back(temp);
         // cout << "array size:" << vj.size() << endl;
         sta = skipEmptyOneChar(s, sta, end, ',');
     }
-    return new JsonObject(vj);
+    return JSONOBJECT(vj);
 }
-JsonObject *JsonObject::findNextNullptr(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextNullptr(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     sta = now;
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     if (end - sta >= 4 && s.substr(sta, 4) == "null")
     {
         sta += 4;
-        return new JsonObject();
+        return JSONOBJECT();
     }
-    return new JsonObject(JSONINVALID);
+    return JSONOBJECT(JSONINVALID);
 }
-JsonObject *JsonObject::findNextDict(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextDict(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     sta = now;
     // std::cout << sta << " " << end << endl;
     if (s[now] != '{')
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     sta++;
-    JsonObject *temp;
-    unordered_map<string, JsonObject *> mp;
+    JsonObjectPtr temp;
+    JsonDict mp;
     while (true)
     {
         sta = firstNonEmpty(s, sta, end);
         // std::cout << "dict range:" << sta << " " << end << endl;
         if (sta >= end)
         {
-            for (pair<string, JsonObject *> p : mp)
+            for (pair<string, JsonObjectPtr > p : mp)
             {
-                delete p.second;
+                // delete p.second;
+                p.second.reset();
             }
-            return new JsonObject(JSONINVALID);
+            return JSONOBJECT(JSONINVALID);
             // reportError("type error:dict,invalid json in char:{%d->%d}", sta, end);
         }
         if (s[sta] == '}')
@@ -637,24 +641,27 @@ JsonObject *JsonObject::findNextDict(std::string &s, int &sta, int &end)
         // std::cout << "get key:" << temp.asString() << endl;
         if (temp->getType() == JSONINVALID)
         {
-            for (pair<string, JsonObject *> p : mp)
+            for (pair<string, JsonObjectPtr > p : mp)
             {
-                delete p.second;
+                // delete p.second;
+                p.second.reset();
             }
             return temp;
             // reportError("type error:dict,invalid json in char:{%d->%d}", sta, end);
         }
         string key = temp->asString();
-        delete temp;
+        // delete temp;
+        temp.reset();
         sta = skipEmptyOneChar(s, sta, end, ':');
         // std::cout << "find value" << endl;
         temp = findNextJsonObeject(s, sta, end);
         // std::cout << "get value:" << temp.getTypeStr() << endl;
         if (temp->getType() == JSONINVALID)
         {
-            for (pair<string, JsonObject *> p : mp)
+            for (pair<string, JsonObjectPtr > p : mp)
             {
-                delete p.second;
+                // delete p.second;
+                p.second.reset();
             }
             return temp;
             // reportError("type error:dict,invalid json in char:{%d->%d}", sta, end);
@@ -663,14 +670,14 @@ JsonObject *JsonObject::findNextDict(std::string &s, int &sta, int &end)
         // std::cout << "end dict range:" << sta << " " << end << endl;
         sta = skipEmptyOneChar(s, sta, end, ',');
     }
-    return new JsonObject(mp);
+    return JSONOBJECT(mp);
 }
-JsonObject *JsonObject::findNextString(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextString(std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     // std::cout << "string:" << now << "|" << s[now] << endl;
     if (now >= end)
-        return new JsonObject(JSONINVALID);
+        return JSONOBJECT(JSONINVALID);
     sta = now;
     if (s[sta] != '\"')
         reportError("type error:string,invalid json in char:{%d->%d}", sta, end);
@@ -685,5 +692,5 @@ JsonObject *JsonObject::findNextString(std::string &s, int &sta, int &end)
         reportError("type error:string,invalid json in char:{%d->%d}", sta, end);
     // std::cout << "string range:" << l << " " << r << endl;
     sta = r + 1;
-    return new JsonObject(s.substr(l, r - l));
+    return JSONOBJECT(s.substr(l, r - l));
 }
