@@ -8,45 +8,41 @@ using namespace std;
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
-
-const unordered_map<string, function<void(const JsonObject &obj, Scheduler &scheduler)>> callFunName =
-{
+// 此处应当传入参数列表，和Scheduler类
+const unordered_map<string, function<void(const JsonDict &obj, Scheduler &scheduler)>> callFunName =
     {
-        "add",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+        {"add", [](const JsonDict &obj, Scheduler &scheduler) -> void
+         {
+             string &queue = obj.at("queue")->asString();
+             string &data = obj.at("data")->asString();
+             scheduler.addMessage(queue, data);
+         }},
+        {"read", [](const JsonDict &obj, Scheduler &scheduler) -> void
+         {
+             string &queue = obj.at("queue")->asString();
+             int message_id = obj.at("message_id")->asInt();
+             int count = obj.at("count")->asInt();
+             int block = obj.at("block")->asInt();
+             scheduler.readMessage(queue, message_id, count, block);
+         }},
+        {"readgroup", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
-    {
-        "read",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+         }},
+        {"createqueue", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
-    {
-        "readgroup",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+         }},
+        {"creategroup", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
-    {
-        "create",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+         }},
+        {"ack", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
-    {
-        "ack",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+         }},
+        {"delqueue", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
-    {
-        "del",[](const JsonObject &obj, Scheduler &scheduler) -> void
-        {
+         }},
+        {"delgroup", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
-        }
-    },
+         }},
 };
 
 //class LinkList
@@ -240,6 +236,10 @@ void Scheduler::setClient(int clientFd)
 }
 void Scheduler::response(string result, int clientFd)
 {
+#ifdef __linux__
+    modEvent(epollFd, clientFd, ALL_OP);
+#else
+#endif
     if(clientFd == -1)
         clients[nowClient].addWriteBuf(result);
     else
@@ -363,7 +363,7 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         g.lastId = q.Messages.getNext(g.lastId);
         vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
     }
-    needWriteClients.insert(nowClient);
+    // needWriteClients.insert(nowClient);
     response(packageMessage(0, vj));
 }
 void Scheduler::addMessage(const string &queue, const string& data)
@@ -383,8 +383,8 @@ void Scheduler::addMessage(const string &queue, const string& data)
     for(string group : q.waitGroups)
     {
         ConsumerGroup &g = q.groups[group];
-
-        while(q.Messages.getNext(g.lastId) == q.Messages.end())
+        // 如果当前消费组有消费者等待消息且有消息可读
+        while(q.Messages.getNext(g.lastId) != q.Messages.end() && !g.waitConsumers.empty())
         {
             // 随机获取集合中的一个元素
             int size = g.waitConsumers.size();
@@ -407,11 +407,13 @@ void Scheduler::addMessage(const string &queue, const string& data)
                 messageIds.push_back(g.lastId);
                 vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
                 // 将此条消息加入到所在消费者组pendingMessages，并更新messageInfos
-                //  ****
+                g.pendingMessages.insert(g.lastId);
+                g.messageInfos.insert({g.lastId, HoldTime<int>(g.lastId,c.name)});
+
             }
             for(int i : messageIds)
                 c.messages.pushBack(i);
-            needWriteClients.insert(c.clientFd);
+            // needWriteClients.insert(c.clientFd);
             response(packageMessage(0, vj), c.clientFd);
             // 从等待消费者中移除
             g.waitConsumers.erase(it);
@@ -506,10 +508,39 @@ void Scheduler::delGroup(const string &queue, const string &group)
     q.groups.erase(git);
     response(packageMessage(CMD_OK, "remove group success:" + group));
 }
-void Scheduler::ackMessage(const string &queue, const string &group, int MessageId){}
-void Scheduler::parse(int clientFd, const JsonObject &obj)
+void Scheduler::ackMessage(const string &queue, const string &group, int MessageId)
 {
-
+    auto qit = messageQueues.find(queue);
+    if (qit == messageQueues.end())
+    {
+        response(packageMessage(NONE_QUEUE,"no name Queue:" + queue));
+        return;
+    }
+    MessageQueue &q = qit->second;
+    auto git = q.groups.find(group);
+    if (git == q.groups.end())
+    {
+        response(packageMessage(NONE_GROUP,"no name Group:" + group));
+        return;
+    }
+    ConsumerGroup &g = git->second;
+    auto mid = g.pendingMessages.find(MessageId);
+    if (mid == g.pendingMessages.end())
+    {
+        response(packageMessage(NONE_MESSAGE,"no Pending Message:" + to_string(MessageId)));
+        return;
+    }
+    g.pendingMessages.erase(mid);
+    g.messageInfos[g.lastId].stop();
+}
+void Scheduler::parse(int clientFd, const string &s)
+{
+    // 设置当前正在操作的连接标识符
+    nowClient = clientFd;
+    JsonObjectPtr obj = JsonObject::decoder(s);
+    string &call = obj->asDict().at("call")->asString();
+    JsonDict &params = obj->asDict().at("params")->asDict();
+    callFunName.at(call)(params, *this);
 }
 //linux下
 #ifdef __linux__
@@ -543,7 +574,7 @@ int setnonblocking(int fd)
     return old_option;
 }
 
-static void addEvent(int epollfd, int fd, int state)
+void addEvent(int epollfd, int fd, int state)
 {
     struct epoll_event ev;
     ev.events = state;
@@ -555,7 +586,7 @@ static void addEvent(int epollfd, int fd, int state)
     }
 }
 
-static void delEvent(int epollfd, int fd)
+void delEvent(int epollfd, int fd)
 {
     if (epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, NULL) < 0)
     {
@@ -563,8 +594,7 @@ static void delEvent(int epollfd, int fd)
         exit(-1);
     }
 }
-
-static void modEvent(int epollfd, int fd, int state)
+void modEvent(int epollfd, int fd, int state)
 {
     struct epoll_event ev;
     ev.events = state;
@@ -653,9 +683,8 @@ void closeSocket(int socketFd)
     close(socketFd);
 }
 
-const int ALL_OP = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLOUT;
 
-void polling(int serverFd, Scheduler scheduler)
+void polling(int serverFd, Scheduler& scheduler)
 {
     setnonblocking(serverFd);
     struct epoll_event ev, events[MAXSIZE];
@@ -667,7 +696,8 @@ void polling(int serverFd, Scheduler scheduler)
         printf("epoll_create Error: %s (errno: %d)\n", strerror(errno), errno);
         exit(-1);
     }
-    addEvent(epfd, serverFd, EPOLLIN | EPOLLERR | EPOLLHUP);
+    scheduler.epollFd = epfd;
+    addEvent(epfd, serverFd, NO_OUT_OP);
     printf("======waiting for client's request======\n");
     int epollDelayTime = 0;
     while (true)
@@ -700,7 +730,7 @@ void polling(int serverFd, Scheduler scheduler)
                     {
                         printf("accept Client[%d]\n", clientFd);
                         setnonblocking(clientFd);
-                        addEvent(epfd, clientFd, EPOLLIN | EPOLLERR | EPOLLHUP);
+                        addEvent(epfd, clientFd, NO_OUT_OP);
                         scheduler.addClient(clientFd);
                     }
                     continue;
@@ -747,6 +777,8 @@ void polling(int serverFd, Scheduler scheduler)
                 {
                     // cout << "正在写入缓冲区" << endl;
                     scheduler.clients[clientFd].push();
+                    if (scheduler.clients[clientFd].writeBuf.empty())
+                        modEvent(epfd, clientFd, NO_OUT_OP);
                 }
             }
         }

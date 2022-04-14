@@ -22,6 +22,7 @@
 #define NONE_GROUP 11
 #define GROUP_BUSY 12
 #define CONSUMER_BUSY 21
+#define NONE_MESSAGE 31
 
 class LinkList
 {
@@ -146,8 +147,8 @@ public:
     int lastId = -1;
     unordered_map<string, Consumer> consumers;
     unordered_set<string> waitConsumers;
-    unordered_map<int, MessageInfo<int>> messageInfos;
-    LinkList pendingMessages;
+    unordered_map<int, HoldTime<int>> messageInfos;
+    set<int> pendingMessages;
 };
 
 using ull = unsigned long long;
@@ -159,9 +160,12 @@ private:
     T id;
     uint hlodCount = 0;
     ull start = 0, end = 0;
+    string owner;
+
 public:
-    HoldTime(T id)
+    HoldTime(T id,const string& owner)
     {
+        this->owner = owner;
         this->id = id;
         start = getTimeStamp();
         hlodCount = 1;
@@ -181,26 +185,14 @@ public:
     {
         end = getTimeStamp();
     }
-    void claim()
+    void claim(const string& owner)
     {
+        this->owner = owner;
         hlodCount++;
         start = getTimeStamp();
         end = 0;
     }
 
-};
-
-template<class T>
-class MessageInfo
-{
-private:
-    unordered_map<T, HoldTime<T>> consumerHold;
-    string data = "";
-public:
-    explicit Message() {}
-    explicit Message(string data) : data(data){}
-    explicit Message(const char* data) : data(data){}
-    explicit Message(char* data) : data(data){}
 };
 
 class Message
@@ -218,8 +210,6 @@ public:
     unordered_map<string, ConsumerGroup> groups;
     LinkList Messages;
     unordered_set<string> waitGroups;
-    // 用来存储持有消息但没有确认的消费者组
-    unordered_set<string> pendingGroups;
     // 用来存储block等待的连接
     unordered_set<int> waitConsumers;
 };
@@ -229,7 +219,7 @@ class Scheduler
 private:
     unordered_map<string, MessageQueue> messageQueues;
     unordered_map<int, ClientBuf> clients;
-    unordered_set<int> needWriteClients;
+    // unordered_set<int> needWriteClients;
 
     // 阻塞消费者队列 ,存着pair first是阻塞最晚时间，second是该连接标识符
     set<pair<ull, int>> blockLink;
@@ -243,7 +233,10 @@ private:
     ull MAX_DELAY_TIME = 1000000000000000000ull;
     int nowClient = -1;
 
+
 public:
+    // 设置epoll标识符
+    int epollFd;
     // 改用整体调度，分层调度参数传入和阻塞操作太麻烦
     void setClient(int clientFd);
     void response(string result, int clientFd = -1);
@@ -260,7 +253,7 @@ public:
     void delConsumer(const string &queue, const string &group, const string &consumer);
     string packageMessage(int code, const string &data);
     string packageMessage(int code, const JsonObject &data);
-    void parse(int clientFd, const JsonObject &obj);
+    void parse(int clientFd, const string &s);
 };
 
 
@@ -277,7 +270,18 @@ decltype(auto) invoke(Function&& func, Tuple&& t)
     return invoke_impl(std::forward<Function>(func), std::forward<Tuple>(t), std::make_index_sequence<size>{});
 }
 
-extern const unordered_map<string, function<void(const JsonObject &obj, Scheduler &scheduler)>> callFunName;
+extern const unordered_map<string, function<void(const JsonDict &obj, Scheduler &scheduler)>> callFunName;
+#ifdef __linux__
+const int ALL_OP = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLOUT;
+const int NO_OUT_OP = EPOLLIN | EPOLLERR | EPOLLHUP;
+#else
+
+#endif
+
+void addEvent(int epollfd, int fd, int state);
+void delEvent(int epollfd, int fd);
+void modEvent(int epollfd, int fd, int state);
+
 
 //header -> 四位int型，表示之后多少个字节是一整个数据包
 #define HEADER_SIZE 4

@@ -214,19 +214,19 @@ ObjectType JsonObject::getType() { return type; }
 
 const char *JsonObject::getTypeStr() { return ObjectTypeNames[(int)type]; }
 
-long long JsonObject::asInt()
+long long& JsonObject::asInt()
 {
     if (type != JSONINT)
         throw "get value type error(int),correct type is " + string(ObjectTypeNames[(int)type]);
     return i;
 }
-double JsonObject::asDouble()
+double& JsonObject::asDouble()
 {
     if (type != JSONDOUBLE)
         throw "get value type error(double),correct type is " + string(ObjectTypeNames[(int)type]);
     return d;
 }
-std::string JsonObject::asString()
+std::string& JsonObject::asString()
 {
     if (type != JSONSTRING)
         throw "get value type error(string),correct type is " + string(ObjectTypeNames[(int)type]);
@@ -244,7 +244,7 @@ JsonArray& JsonObject::asArray()
         throw "get value type error(array),correct type is " + string(ObjectTypeNames[(int)type]);
     return v;
 }
-bool JsonObject::asBool()
+bool& JsonObject::asBool()
 {
     if (type != JSONBOOL)
         throw "get value type error(bool),correct type is " + string(ObjectTypeNames[(int)type]);
@@ -377,7 +377,7 @@ std::string JsonObject::json()
     }
 }
 
-JsonObjectPtr JsonObject::decoder(std::string &s)
+JsonObjectPtr JsonObject::decoder(const std::string &s)
 {
     if (s.length() == 0)
         return JSONOBJECT(JSONINVALID);
@@ -411,14 +411,14 @@ JsonObjectPtr JsonObject::decoder(std::string &s)
     }
 }
 
-int JsonObject::firstNonEmpty(std::string &s, int sta, int end, int step, bool flag)
+int JsonObject::firstNonEmpty(const std::string &s, int sta, int end, int step, bool flag)
 {
     while (sta < end && (isspace(s[sta]) > 0) == flag)
         sta++;
     return sta;
 }
 
-int JsonObject::skipEmptyOneChar(std::string &s, int sta, int end, char c)
+int JsonObject::skipEmptyOneChar(const std::string &s, int sta, int end, char c)
 {
     bool flag = false;
     while (sta < end)
@@ -454,7 +454,7 @@ void JsonObject::reportError(const char *s, int x, int y)
     throw res;
 }
 
-JsonObjectPtr JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextJsonObeject(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     sta = now;
@@ -487,7 +487,7 @@ JsonObjectPtr JsonObject::findNextJsonObeject(std::string &s, int &sta, int &end
     return temp;
 }
 
-JsonObjectPtr JsonObject::findNextNumber(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextNumber(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
@@ -524,7 +524,7 @@ JsonObjectPtr JsonObject::findNextNumber(std::string &s, int &sta, int &end)
         return JSONOBJECT(d);
     }
 }
-JsonObjectPtr JsonObject::findNextBool(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextBool(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
@@ -541,7 +541,7 @@ JsonObjectPtr JsonObject::findNextBool(std::string &s, int &sta, int &end)
     }
     return JSONOBJECT(JSONINVALID);
 }
-JsonObjectPtr JsonObject::findNextArray(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextArray(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
@@ -592,7 +592,7 @@ JsonObjectPtr JsonObject::findNextArray(std::string &s, int &sta, int &end)
     }
     return JSONOBJECT(vj);
 }
-JsonObjectPtr JsonObject::findNextNullptr(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextNullptr(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     sta = now;
@@ -605,7 +605,7 @@ JsonObjectPtr JsonObject::findNextNullptr(std::string &s, int &sta, int &end)
     }
     return JSONOBJECT(JSONINVALID);
 }
-JsonObjectPtr JsonObject::findNextDict(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextDict(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
@@ -672,7 +672,7 @@ JsonObjectPtr JsonObject::findNextDict(std::string &s, int &sta, int &end)
     }
     return JSONOBJECT(mp);
 }
-JsonObjectPtr JsonObject::findNextString(std::string &s, int &sta, int &end)
+JsonObjectPtr JsonObject::findNextString(const std::string &s, int &sta, int &end)
 {
     int now = firstNonEmpty(s, sta, end);
     // std::cout << "string:" << now << "|" << s[now] << endl;
