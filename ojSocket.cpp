@@ -237,7 +237,7 @@ void Scheduler::setClient(int clientFd)
 void Scheduler::response(string result, int clientFd)
 {
 #ifdef __linux__
-    modEvent(epollFd, clientFd, ALL_OP);
+    // modEvent(epollFd, clientFd, ALL_OP);
 #else
 #endif
     if(clientFd == -1)
@@ -415,6 +415,8 @@ void Scheduler::addMessage(const string &queue, const string& data)
                 c.messages.pushBack(i);
             // needWriteClients.insert(c.clientFd);
             response(packageMessage(0, vj), c.clientFd);
+            // 从阻塞连接中删除当前的连接
+            delClientFdFromBlockLink(c.clientFd);
             // 从等待消费者中移除
             g.waitConsumers.erase(it);
             // 从阻塞消费者队列中移除
@@ -541,6 +543,29 @@ void Scheduler::parse(int clientFd, const string &s)
     string &call = obj->asDict().at("call")->asString();
     JsonDict &params = obj->asDict().at("params")->asDict();
     callFunName.at(call)(params, *this);
+}
+
+ull Scheduler::awakeTime()
+{
+    if(blockLink.empty())
+        return -1;
+    ull nowTime = getTimeStamp();
+    ull nextTime = blockLink.begin()->first;
+    return nowTime <= nextTime ? 0 : nextTime - nowTime;
+}
+
+void Scheduler::delClientFdFromBlockLink(int clientFd)
+{
+    
+}
+
+void Scheduler::responseBlockConsumer()
+{
+    ull nowTime = getTimeStamp();
+    while(blockLink.size() && blockLink.begin()->first <= nowTime)
+    {
+
+    }
 }
 //linux下
 #ifdef __linux__

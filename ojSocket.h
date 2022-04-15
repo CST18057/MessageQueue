@@ -254,6 +254,12 @@ public:
     string packageMessage(int code, const string &data);
     string packageMessage(int code, const JsonObject &data);
     void parse(int clientFd, const string &s);
+    // 返回过多长时间会有一个阻塞连接到时间
+    ull awakeTime();
+    // 删除阻塞连接队列中的该连接
+    void delClientFdFromBlockLink(int clientFd);
+    // 反馈阻塞的消费者连接
+    void responseBlockConsumer();
 };
 
 
@@ -282,9 +288,11 @@ void addEvent(int epollfd, int fd, int state);
 void delEvent(int epollfd, int fd);
 void modEvent(int epollfd, int fd, int state);
 
-
 //header -> 四位int型，表示之后多少个字节是一整个数据包
 #define HEADER_SIZE 4
+
+// 获取当前时间戳
+ull getTimeStamp();
 
 unsigned long long getTimeStamp();
 
