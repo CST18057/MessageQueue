@@ -300,6 +300,8 @@ void Scheduler::readMessage(const string &queue,int MessageId, int count, int bl
         blockLink.insert({nowTime + block ? block : MAX_DELAY_TIME, nowClient});
         // 在当前消费者组加入此等待标识符
         q.waitConsumers.insert(nowClient);
+        clientConsumers[nowClient] = {queue, "", ""};
+        blockLinkTime.insert({nowClient, nowTime + block ? block : MAX_DELAY_TIME});
     }
     else
     {
@@ -351,6 +353,7 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         g.consumers[consumer] = c;
         // 放入block阻塞消费者中
         blockLink.insert({c.joinTime + c.block, nowClient});
+        blockLinkTime.insert({nowClient, c.joinTime + c.block});
         return;
     }
     JsonObject vj(
@@ -419,8 +422,6 @@ void Scheduler::addMessage(const string &queue, const string& data)
             delClientFdFromBlockLink(c.clientFd);
             // 从等待消费者中移除
             g.waitConsumers.erase(it);
-            // 从阻塞消费者队列中移除
-            blockLink.erase({c.joinTime + c.block, c.clientFd});
         }
         if(g.waitConsumers.empty())
             noWaitGroups.push_back(group);
@@ -556,7 +557,29 @@ ull Scheduler::awakeTime()
 
 void Scheduler::delClientFdFromBlockLink(int clientFd)
 {
-    
+    ull blockTime = blockLinkTime[clientFd];
+    blockLink.erase(blockLink.find({blockTime, clientFd}));
+    blockLinkTime.erase(blockLinkTime.find(clientFd));
+    auto qgc = clientConsumers.find(clientFd);
+    if (qgc != clientConsumers.end())
+    {
+        string queue = get<0>(qgc->second);
+        string group = get<1>(qgc->second);
+        string consumer = get<2>(qgc->second);
+        MessageQueue &q = messageQueues[get<0>(qgc->second)];
+        // 如果不是消费组
+        if(group == "")
+        {
+            q.waitConsumers.erase(clientFd);
+        }
+        else
+        {
+            ConsumerGroup &g = q.groups[group];
+            g.waitConsumers.erase(consumer);
+            if(g.waitConsumers.empty())
+                q.waitGroups.erase(group);
+        }
+    }
 }
 
 void Scheduler::responseBlockConsumer()
@@ -564,7 +587,8 @@ void Scheduler::responseBlockConsumer()
     ull nowTime = getTimeStamp();
     while(blockLink.size() && blockLink.begin()->first <= nowTime)
     {
-
+        response(packageMessage(CMD_OK,"READ TIMEOUT"), blockLink.begin()->second);
+        delClientFdFromBlockLink(blockLink.begin()->second);
     }
 }
 //linux下

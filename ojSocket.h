@@ -224,6 +224,9 @@ private:
     // 阻塞消费者队列 ,存着pair first是阻塞最晚时间，second是该连接标识符
     set<pair<ull, int>> blockLink;
 
+    // 阻塞连接的最长等待时间，用来反射blockLink
+    unordered_map<int, ull> blockLinkTime;
+
     // 持有信息消费者队列，first是阻塞最晚时间，second是(队列名，消费者组名，消费者名)
     set<pair<ull, tuple<string, string, string>>> holdConsumers;
 
