@@ -106,6 +106,28 @@ public:
         int x = getUpperBoundMessageId(id);
         return x == -1 ? defaultValue : pool[x];
     }
+    int getLowerBoundMessageId(int id)
+    {
+        auto x = ids.lower_bound(id);
+        return x == ids.end() ? -1 : *x;
+    }
+    T getLowerBoundMessage(int id, T defaultValue = T())
+    {
+        int x = getLowerBoundMessageId(id);
+        return x == -1 ? defaultValue : pool[x];
+    }
+    vector<int> rangeId(int start, int end, int count = -1)
+    {
+        vector<int> v;
+        for (auto it = ids.lower_bound(start); it != ids.upper_bound(end);it++)
+        {
+            if(count == 0)
+                return v;
+            v.push_back(*it);
+            count--;
+        }
+        return v;
+    }
     unsigned int size()
     {
         return pool.size();
@@ -135,7 +157,7 @@ public:
     uint exceptMessageSize = 0;
     ull block = 0;
     ull joinTime = 0;
-    LinkList messages;
+    set<int> messages;
     int clientFd = 0;
 };
 
@@ -208,7 +230,7 @@ public:
     unsigned int MAX_SIZE = 1000;
     DataPool<Message> messagePool;
     unordered_map<string, ConsumerGroup> groups;
-    LinkList Messages;
+    set<int> Messages;
     unordered_set<string> waitGroups;
     // 用来存储block等待的连接
     unordered_set<int> waitConsumers;
@@ -254,6 +276,9 @@ public:
     void delGroup(const string &queue, const string &group);
     void ackMessage(const string &queue, const string &group, int MessageId);
     void delConsumer(const string &queue, const string &group, const string &consumer);
+    void info(const string &queue, const string &group, const string &consumer);
+    void pending(const string &queue, const string &group, int start = 0, int end = INT_MAX, int count = -1, const string &consumer = "");
+    void rangeMessage(const string &queue, int start = 0, int end = INT_MAX, int count = -1);
     string packageMessage(int code, const string &data);
     string packageMessage(int code, const JsonObject &data);
     void parse(int clientFd, const string &s);

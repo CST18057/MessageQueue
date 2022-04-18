@@ -240,10 +240,16 @@ void Scheduler::response(string result, int clientFd)
     // modEvent(epollFd, clientFd, ALL_OP);
 #else
 #endif
+
+#ifdef DEBUG_JUDGE
+    cout << result << endl;
+#else
     if(clientFd == -1)
         clients[nowClient].addWriteBuf(result);
     else
         clients[clientFd].addWriteBuf(result);
+
+#endif
 }
 
 string Scheduler::packageMessage(int code, const string &data)
@@ -329,8 +335,9 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         response(packageMessage(CONSUMER_BUSY,"consumer is waiting:" + group));
         return;
     }
+    auto stop = q.Messages.end();
     // 如果当前没有空闲消息
-    if(q.Messages.getNext(g.lastId) == q.Messages.end())
+    if(q.Messages.upper_bound(g.lastId) == q.Messages.end())
     {
         // 不等待直接返回
         if(block == 0)
@@ -359,11 +366,13 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
     JsonObject vj(
         JsonArray{}
     );
+    auto mit = q.Messages.upper_bound(g.lastId);
     while(count--)
     {
-        if(q.Messages.getNext(g.lastId) == q.Messages.end())
+        if(mit == q.Messages.end())
             break;
-        g.lastId = q.Messages.getNext(g.lastId);
+        g.lastId = *mit;
+        mit++;
         vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
     }
     // needWriteClients.insert(nowClient);
@@ -381,13 +390,14 @@ void Scheduler::addMessage(const string &queue, const string& data)
     Message msg;
     msg.data = data;
     int messageId = q.messagePool.put(msg);
-    q.Messages.pushBack(messageId);
+    q.Messages.insert(messageId);
     vector<string> noWaitGroups;
     for(string group : q.waitGroups)
     {
         ConsumerGroup &g = q.groups[group];
         // 如果当前消费组有消费者等待消息且有消息可读
-        while(q.Messages.getNext(g.lastId) != q.Messages.end() && !g.waitConsumers.empty())
+        auto mit = q.Messages.upper_bound(g.lastId);
+        while(mit != q.Messages.end() && !g.waitConsumers.empty())
         {
             // 随机获取集合中的一个元素
             int size = g.waitConsumers.size();
@@ -404,9 +414,10 @@ void Scheduler::addMessage(const string &queue, const string& data)
             vector<int> messageIds;
             while(count--)
             {
-                if(q.Messages.getNext(g.lastId) == q.Messages.end())
+                if(mit == q.Messages.end())
                     break;
-                g.lastId = q.Messages.getNext(g.lastId);
+                g.lastId = *mit;
+                mit++;
                 messageIds.push_back(g.lastId);
                 vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
                 // 将此条消息加入到所在消费者组pendingMessages，并更新messageInfos
@@ -415,7 +426,7 @@ void Scheduler::addMessage(const string &queue, const string& data)
 
             }
             for(int i : messageIds)
-                c.messages.pushBack(i);
+                c.messages.insert(i);
             // needWriteClients.insert(c.clientFd);
             response(packageMessage(0, vj), c.clientFd);
             // 从阻塞连接中删除当前的连接
@@ -580,6 +591,76 @@ void Scheduler::delClientFdFromBlockLink(int clientFd)
                 q.waitGroups.erase(group);
         }
     }
+}
+
+void Scheduler::info(const string &queue, const string &group, const string &consumer)
+{
+    if (queue != "")
+    {
+        return;
+    }
+    if (group != "")
+    {
+        return;
+    }
+    if (consumer != "")
+    {
+        return;
+    }
+}
+
+void Scheduler::pending(const string &queue, const string &group, int start, int end, int count, const string &consumer)
+{
+    auto qit = messageQueues.find(queue);
+    if (qit == messageQueues.end())
+    {
+        response(packageMessage(NONE_QUEUE,"no name Queue:" + queue));
+        return;
+    }
+    MessageQueue &q = qit->second;
+    auto git = q.groups.find(group);
+    if (git == q.groups.end())
+    {
+        response(packageMessage(NONE_GROUP,"no name Group:" + group));
+        return;
+    }
+    ConsumerGroup &g = git->second;
+    auto it = g.pendingMessages.lower_bound(start);
+    auto stop = g.pendingMessages.upper_bound(end);
+    // 如果给定了消费者
+    if (consumer != "")
+    {
+        Consumer &c = g.consumers[consumer];
+        it = c.messages.lower_bound(start);
+        stop = c.messages.upper_bound(end);
+    }
+    JsonObject data(JsonArray{});
+    for (; it != stop; it++)
+    {
+        if(count == 0)
+            break;
+        data.asArray().push_back(JSONOBJECT(q.messagePool.get(*it).data));
+        count--;
+    }
+    response(packageMessage(CMD_OK, data), nowClient);
+}
+
+void Scheduler::rangeMessage(const string &queue, int start, int end, int count)
+{
+    auto qit = messageQueues.find(queue);
+    if (qit == messageQueues.end())
+    {
+        response(packageMessage(NONE_QUEUE,"no name Queue:" + queue));
+        return;
+    }
+    MessageQueue &q = qit->second;
+    vector<int> v = q.messagePool.rangeId(start, end, count);
+    JsonObject data(JsonArray{});
+    for (int i : v)
+    {
+        data.asArray().push_back(JSONOBJECT(q.messagePool.get(i).data));
+    }
+    response(packageMessage(CMD_OK, data), nowClient);
 }
 
 void Scheduler::responseBlockConsumer()
