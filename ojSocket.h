@@ -8,6 +8,13 @@
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
+#include <limits.h>
+#ifdef __linux__
+#include <sys/time.h>
+#include <sys/epoll.h> //epoll头文件
+#else
+    
+#endif
 #include "jsonObject.h"
 
 #define BUFSIZE 4096
@@ -23,7 +30,9 @@
 #define GROUP_BUSY 12
 #define CONSUMER_BUSY 21
 #define NONE_MESSAGE 31
-
+using namespace std;
+using ull = unsigned long long;
+using uint = unsigned int;
 class LinkList
 {
 private:
@@ -31,6 +40,7 @@ private:
     //head表示头结点，tail表示尾结点，end表示结束标识符，size为列表内的结点数（不包含头结点）
     int _head = -1, _end = -2, _tail = -1, _size = 0;
 public:
+    LinkList();
     int getPre(int x);
     int getNext(int x);
     void pop(int x);
@@ -59,6 +69,56 @@ public:
     int pull();
 };
 
+// 获取当前时间戳
+ull getTimeStamp();
+
+template<class T>
+class HoldTime
+{
+private:
+    T id;
+    uint hlodCount = 0;
+    ull start = 0, end = 0;
+    string owner;
+
+public:
+    HoldTime()
+    {
+        this->owner = "";
+        this->id = T();
+    }
+    HoldTime(T id,const string& owner)
+    {
+        this->owner = owner;
+        this->id = id;
+        start = getTimeStamp();
+        hlodCount = 1;
+        end = 0;
+    }
+    uint hold()
+    {
+        if(!end)
+            return getTimeStamp() - start;
+        return end - start;
+    }
+    uint count()
+    {
+        return hlodCount;
+    }
+    void stop()
+    {
+        end = getTimeStamp();
+    }
+    void claim(const string& owner)
+    {
+        this->owner = owner;
+        hlodCount++;
+        start = getTimeStamp();
+        end = 0;
+    }
+
+};
+
 
 // 加入一个数据后会返回一个唯一的id，可以用该id检索到该数据
 template<class T>
@@ -76,15 +136,15 @@ public:
     T get(int id, T defalutValue = T())
     {
         auto x = pool.find(id);
-        return x == pool.end() ? defalutValue : *x;
+        return x == pool.end() ? defalutValue : x->second;
     }
     bool pop(int id)
     {
-        return pool.erase(x) && ids.erase(x);
+        return pool.erase(id) && ids.erase(id);
     }
     int put(T value = T())
     {
-        pool[lastId] = T;
+        pool[lastId] = value;
         ids.insert(lastId);
         return lastId++;
     }
@@ -173,49 +233,7 @@ public:
     set<int> pendingMessages;
 };
 
-using ull = unsigned long long;
-using uint = unsigned int;
-template<class T>
-class HoldTime
-{
-private:
-    T id;
-    uint hlodCount = 0;
-    ull start = 0, end = 0;
-    string owner;
 
-public:
-    HoldTime(T id,const string& owner)
-    {
-        this->owner = owner;
-        this->id = id;
-        start = getTimeStamp();
-        hlodCount = 1;
-        end = 0;
-    }
-    uint hold()
-    {
-        if(!end)
-            return getTimeStamp() - start;
-        return end - start;
-    }
-    uint count()
-    {
-        return hlodCount;
-    }
-    void stop()
-    {
-        end = getTimeStamp();
-    }
-    void claim(const string& owner)
-    {
-        this->owner = owner;
-        hlodCount++;
-        start = getTimeStamp();
-        end = 0;
-    }
-
-};
 
 class Message
 {
@@ -240,7 +258,7 @@ class Scheduler
 { 
 private:
     unordered_map<string, MessageQueue> messageQueues;
-    unordered_map<int, ClientBuf> clients;
+
     // unordered_set<int> needWriteClients;
 
     // 阻塞消费者队列 ,存着pair first是阻塞最晚时间，second是该连接标识符
@@ -260,6 +278,8 @@ private:
 
 
 public:
+    // 设置客户端缓冲
+    unordered_map<int, ClientBuf> clients;
     // 设置epoll标识符
     int epollFd;
     // 改用整体调度，分层调度参数传入和阻塞操作太麻烦
@@ -318,11 +338,6 @@ void modEvent(int epollfd, int fd, int state);
 
 //header -> 四位int型，表示之后多少个字节是一整个数据包
 #define HEADER_SIZE 4
-
-// 获取当前时间戳
-ull getTimeStamp();
-
-unsigned long long getTimeStamp();
 
 //创建服务器并返回服务器标识符
 int createServer();

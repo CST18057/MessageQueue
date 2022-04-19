@@ -8,6 +8,19 @@ using namespace std;
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
+
+ull getTimeStamp()
+{
+#ifdef __linux__
+    struct timeval time;
+ 
+    /* 获取时间，理论到us */
+    gettimeofday(&time, NULL);
+    return (ull)(time.tv_usec / 1000) + (ull)time.tv_sec * 1000;
+#else
+    return 0;
+#endif
+}
 // 此处应当传入参数列表，和Scheduler类
 const unordered_map<string, function<void(const JsonDict &obj, Scheduler &scheduler)>> callFunName =
     {
@@ -685,16 +698,7 @@ void Scheduler::responseBlockConsumer()
 #include <unistd.h>
 #include <netinet/in.h>
 #include <ctype.h>
-#include <sys/epoll.h> //epoll头文件
 
-ull getTimeStamp()
-{
-    struct timeval time;
- 
-    /* 获取时间，理论到us */
-    gettimeofday(&time, NULL);
-    return (ull)(tv.tv_usec / 1000) + (ull)tv.tv_sec * 1000;
-}
 
 int setnonblocking(int fd)
 {
@@ -913,11 +917,6 @@ void polling(int serverFd, Scheduler& scheduler)
             }
         }
     }
-}
-
-void closeSocket(int socketFd)
-{
-    close(socketFd);
 }
 
 #endif

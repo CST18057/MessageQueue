@@ -2,11 +2,11 @@
 - 向队列中添加一条数据，必选参数(队列名,消息字符串)
 ```json
 // 命令行格式
-// send {queue} {message} 
+// add {queue} {message} 
 // queue 队列名
 // message 消息字符串
 {
-    "call":"send",
+    "call":"add",
     "params":
         {
             "queue":"Queue", // 队列名

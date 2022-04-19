@@ -1,4 +1,4 @@
-CPP_STANDARD=c++11
+CPP_STANDARD=c++17
 
 .PHONY:clean main
 main: main.o ojSocket.o configure.o jsonObject.o log.o
