@@ -253,16 +253,17 @@ void Scheduler::response(string result, int clientFd)
     // modEvent(epollFd, clientFd, ALL_OP);
 #else
 #endif
-
-#ifdef DEBUG_JUDGE
     cout << result << endl;
-#else
-    if(clientFd == -1)
-        clients[nowClient].addWriteBuf(result);
-    else
-        clients[clientFd].addWriteBuf(result);
 
-#endif
+// #ifdef DEBUG_JUDGE
+//     cout << result << endl;
+// #else
+//     if(clientFd == -1)
+//         clients[nowClient].addWriteBuf(result);
+//     else
+//         clients[clientFd].addWriteBuf(result);
+
+// #endif
 }
 
 string Scheduler::packageMessage(int code, const string &data)
@@ -310,10 +311,11 @@ void Scheduler::readMessage(const string &queue,int MessageId, int count, int bl
         return;
     }
     MessageQueue &q = it->second;
-    int messageId = q.messagePool.getUpperBoundMessageId(messageId);
+    int messageId = q.messagePool.getUpperBoundMessageId(MessageId);
     // 如果没找到
     if (messageId == -1)
     {
+        cout << "join blockLink" << endl;
         // 加入阻塞消费者队列
         ull nowTime = getTimeStamp();
         blockLink.insert({nowTime + block ? block : MAX_DELAY_TIME, nowClient});
@@ -348,9 +350,12 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         response(packageMessage(CONSUMER_BUSY,"consumer is waiting:" + group));
         return;
     }
+    if (MessageId == -1)
+        MessageId = g.lastId;
+    cout << "message id:" << MessageId << endl;
     auto stop = q.Messages.end();
     // 如果当前没有空闲消息
-    if(q.Messages.upper_bound(g.lastId) == q.Messages.end())
+    if(q.Messages.upper_bound(MessageId) == q.Messages.end())
     {
         // 不等待直接返回
         if(block == 0)
@@ -379,14 +384,14 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
     JsonObject vj(
         JsonArray{}
     );
-    auto mit = q.Messages.upper_bound(g.lastId);
+    auto mit = q.Messages.upper_bound(MessageId);
     while(count--)
     {
         if(mit == q.Messages.end())
             break;
-        g.lastId = *mit;
+        g.lastId = max(g.lastId, *mit);
+        vj.asArray().push_back(JSONOBJECT(q.messagePool.get(*mit).data));
         mit++;
-        vj.asArray().push_back(JSONOBJECT(q.messagePool.get(g.lastId).data));
     }
     // needWriteClients.insert(nowClient);
     response(packageMessage(0, vj));
@@ -405,6 +410,8 @@ void Scheduler::addMessage(const string &queue, const string& data)
     int messageId = q.messagePool.put(msg);
     q.Messages.insert(messageId);
     vector<string> noWaitGroups;
+    cout << "add message ok:" << messageId << endl;
+    cout << "message size:" << q.messagePool.size() << endl;
     for(string group : q.waitGroups)
     {
         ConsumerGroup &g = q.groups[group];
@@ -490,7 +497,7 @@ void Scheduler::delQueue(const string &queue)
         return;
     }
     messageQueues.erase(qit);
-    response(packageMessage(CMD_OK, "create queue success:" + queue));
+    response(packageMessage(CMD_OK, "delete queue success:" + queue));
 }
 void Scheduler::createGroup(const string &queue, const string &group, bool mkQueue)
 {
@@ -500,6 +507,7 @@ void Scheduler::createGroup(const string &queue, const string &group, bool mkQue
         if(mkQueue)
         {
             messageQueues.insert({queue, MessageQueue()});
+            qit = messageQueues.find(queue);
         }
         else
         {

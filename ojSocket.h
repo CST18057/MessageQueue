@@ -225,8 +225,7 @@ class ConsumerGroup
 {
 public:
     string name;
-    // -1表示指向消息linklist的头节点
-    int lastId = -1;
+    int lastId = 0;
     unordered_map<string, Consumer> consumers;
     unordered_set<string> waitConsumers;
     unordered_map<int, HoldTime<int>> messageInfos;
@@ -286,6 +285,7 @@ public:
     void setClient(int clientFd);
     void response(string result, int clientFd = -1);
     void readMessage(const string &queue,int MessageId, int count = 1,int block = 0);
+    // MessageId为-1时表示获取最新消息.
     void readMessageGroup(const string &queue, const string &group, const string &consumer,int MessageId, int count = 1,int block = 0);
     void addMessage(const string &queue, const string& data);
     void addClient(int clientFd);
