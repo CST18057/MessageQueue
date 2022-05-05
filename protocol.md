@@ -97,6 +97,48 @@
     "error":"",
 }
 ```
+- 创建一个消息队列
+```json
+// 命令行格式
+// createqueue {queue} 
+// queue 队列名
+{
+    "call":"createqueue",
+    "params":
+        {
+            "queue":"Queue", // 队列名
+        }
+}
+// 返回结果
+{
+    "status":0,
+    "data": "create queue success", // 返回操作是否成功
+    "error":"",
+}
+```
+- 创建一个消费者组
+```json
+// 命令行格式
+// ack {queue} {gorup} [mkqueue=false]
+// queue 队列名
+// group 消费者组名
+// message_id 消息id
+{
+    "call":"ack",
+    "params":
+        {
+            "queue":"Queue", // 队列名
+            "group":"Group",
+            "mkqueue": true // 如果没有该消息队列，是否创建一个新的消息队列，默认是false
+        }
+}
+// 返回结果
+{
+    "status":0,
+    "data": true, // 返回操作是否成功
+    "error":"",
+}
+```
 - 服务器返回命令统一格式
 ```json
 {
