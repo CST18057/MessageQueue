@@ -5,12 +5,26 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 )
 
-// 解码
+func Encode(message string) ([]byte, error) {
+	// 读取消息的长度转换成int32类型（4字节）
+	var length = int32(len(message))
+	var pkg = new(bytes.Buffer)
+	// 写入消息头
+	err := binary.Write(pkg, binary.LittleEndian, length)
+	if err != nil {
+		return nil, err
+	}
+	// 写入包体
+	err = binary.Write(pkg, binary.LittleEndian, []byte(message))
+	if err != nil {
+		return nil, err
+	}
+	return pkg.Bytes(), nil
+}
+
 func Decode(reader *bufio.Reader) (string, error) {
 	// 读消息长度
 	lengthByte, _ := reader.Peek(4)
@@ -21,7 +35,7 @@ func Decode(reader *bufio.Reader) (string, error) {
 		return "", err
 	}
 	// buffer返回缓冲中现有的可读的字节数
-	if int32(reader.Buffered()) < length+4 {
+	for int32(reader.Buffered()) < length+4 {
 		return "", err
 	}
 	// 读取真正的数据
@@ -33,24 +47,22 @@ func Decode(reader *bufio.Reader) (string, error) {
 	return string(pack[4:]), nil
 }
 
-func Handler(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Hello World")
-}
-
 //tcp server demo
 func process(conn net.Conn) {
 	defer conn.Close()
 	//处理完之后要关闭这个连接
 	//针对当前的连接做数据的发送和接收操作
 	reader := bufio.NewReader(conn)
-	for {
-		msg, err := Decode(reader)
-		if err != nil {
-			return
-		}
-		fmt.Println("接受到的数据：", msg)
-		conn.Write([]byte("ok"))
+	msg, err := Decode(reader)
+	if err != nil {
+		fmt.Println("出现错误:" + msg)
+		result, _ := Encode(msg)
+		conn.Write(result)
+		return
 	}
+	fmt.Println("接受到的数据：", msg)
+	result, _ := Encode("ok")
+	conn.Write(result)
 }
 
 func main() {
