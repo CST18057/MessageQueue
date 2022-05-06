@@ -99,8 +99,10 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(msg))
 }
 func ListenAndServe() {
+	files := http.FileServer(http.Dir("./"))
+	http.Handle("/", files)
 	http.HandleFunc("/server", ServeHTTP)
-	err := http.ListenAndServe(":8085", nil)
+	err := http.ListenAndServe("localhost:8085", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe", err)
 	}
