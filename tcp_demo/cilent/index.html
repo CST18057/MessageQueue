@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <!-- 引入样式 -->
@@ -9,284 +8,288 @@
     <script src="https://cdn.staticfile.org/vue/2.4.2/vue.min.js"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
 </head>
-
 <body>
-    <div id="app">
-        <el-container>
-            <el-header>
-                <el-page-header title="" content="详情页面"></el-page-header>
-            </el-header>
-            <el-main style="display: flex">
-                <el-form style="margin-left: 45px;">
-                    <el-form-item label="指令">
-                        <el-select v-model="call" placeholder="请选择">
-                            <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value">
-                            </el-option>
-                        </el-select>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="add_form" label-width="80px" v-if="call=='add'">
-                    <!---add表单-->
-                    <el-form-item label="队列名">
-                        <el-input v-model="add_form.params.queue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消息">
-                        <el-input type="textarea" v-model="add_form.params.data" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="add()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="read_form" label-width="80px" v-if="call=='read'">
-                    <!---read表单-->
-                    <el-form-item label="队列名">
-                        <el-input v-model="read_form.params.queue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消息ID">
-                        <el-input type="textarea" v-model="read_form.params.message_id" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="获取消息的数量">
-                        <el-input type="textarea" v-model="read_form.params.count" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="是否阻塞">
-                        <el-input type="textarea" v-model="read_form.params.block" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="read()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="ack_form" label-width="80px" v-if="call=='ack'">
-                    <!---ack表单-->
-                    <el-form-item label="队列名">
-                        <el-input v-model="ack_form.params.queue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消费者组">
-                        <el-input type="textarea" v-model="ack_form.params.group" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="是否创建">
-                        <el-input type="textarea" v-model="ack_form.params.mkqueue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="ack()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="readgroup_form" label-width="80px" v-if="call=='readgroup'">
-                    <!---readgroup表单-->
-                    <el-form-item label="队列名">
-                        <el-input v-model="readgroup_form.params.queue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消费者组">
-                        <el-input type="textarea" v-model="readgroup_form.params.group" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消费者">
-                        <el-input type="textarea" v-model="readgroup_form.params.consumer" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="消息ID">
-                        <el-input type="textarea" v-model="readgroup_form.params.message_id" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="获取消息的数量">
-                        <el-input type="textarea" v-model="readgroup_form.params.count" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item label="是否阻塞">
-                        <el-input type="textarea" v-model="readgroup_form.params.block" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="readgroup()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="createqueue_form" label-width="80px" v-if="call=='createqueue'">
-                    <!---createqueue表单-->
-                    <el-form-item label="队列名">
-                        <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="createqueue()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <el-form ref="form" :model="creategroup_form" label-width="80px" v-if="call=='creategroup'">
-                    <!---creategroup表单-->
-                    <el-form-item label="消费者组">
-                        <el-input v-model="creategroup_form.params.group" style="width: 500px;"></el-input>
-                    </el-form-item>
-                    <el-form-item>
-                        <el-button type="primary" @click="creategroup()">提交</el-button>
-                        <el-button>取消</el-button>
-                    </el-form-item>
-                </el-form>
-                <div style="display: flex">
-                    <el-card class="box-card" style="width: 300px;margin-left: 50px;">
-                        <div slot="header" class="clearfix">
-                            <span>结果</span>
-                        </div>
-                        <div class="text item">
-                            {{res.code}}
-                        </div>
-                        <div class="text item">
-                            {{res.status}}
-                        </div>
-                        <div class="text item">
-                            {{res.data}}
-                        </div>
-                    </el-card>
-                </div>
-            </el-main>
-        </el-container>
-    </div>
+<div id="app">
+    <el-container>
+        <el-header>
+            <el-page-header title="" content="详情页面"></el-page-header>
+        </el-header>
+        <el-main style="display: flex">
+            <el-form style="margin-left: 45px;">
+                <el-form-item label="指令">
+                    <el-select v-model="call" placeholder="请选择">
+                        <el-option
+                                v-for="item in options"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value">
+                        </el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="add_form" label-width="80px" v-if="call=='add'">
+                <!---add表单-->
+                <el-form-item label="队列名">
+                    <el-input v-model="add_form.params.queue" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消息">
+                    <el-input type="textarea" v-model="add_form.params.data" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="add()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="read_form" label-width="80px" v-if="call=='read'">
+                <!---read表单-->
+                <el-form-item label="队列名">
+                    <el-input v-model="read_form.params.queue" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消息ID">
+                    <el-input type="textarea" v-model="read_form.params.message_id" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="获取消息的数量">
+                    <el-input type="textarea" v-model="read_form.params.count" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="是否阻塞">
+                    <el-input type="textarea" v-model="read_form.params.block" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="read()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="ack_form" label-width="80px" v-if="call=='ack'">
+                <!---ack表单-->
+                <el-form-item label="队列名">
+                    <el-input v-model="ack_form.params.queue" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消费者组">
+                    <el-input type="textarea" v-model="ack_form.params.group" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消息ID">
+                    <el-input type="textarea" v-model="ack_form.params.message_id" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="ack()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="readgroup_form" label-width="80px" v-if="call=='readgroup'">
+                <!---readgroup表单-->
+                <el-form-item label="队列名">
+                    <el-input v-model="readgroup_form.params.queue" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消费者组">
+                    <el-input type="textarea" v-model="readgroup_form.params.group" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消费者">
+                    <el-input type="textarea" v-model="readgroup_form.params.consumer" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="消息ID">
+                    <el-input type="textarea" v-model="readgroup_form.params.message_id" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="获取消息的数量">
+                    <el-input type="textarea" v-model="readgroup_form.params.count" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item label="是否阻塞">
+                    <el-input type="textarea" v-model="readgroup_form.params.block" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="readgroup()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="createqueue_form" label-width="80px" v-if="call=='createqueue'">
+                <!---createqueue表单-->
+                <el-form-item label="队列名">
+                    <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="createqueue()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <el-form ref="form" :model="creategroup_form" label-width="80px" v-if="call=='creategroup'">
+                <!---creategroup表单-->
+                <el-form-item label="消费者组">
+                    <el-input v-model="creategroup_form.params.group" style="width: 500px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                    <el-button type="primary" @click="creategroup()">提交</el-button>
+                    <el-button>取消</el-button>
+                </el-form-item>
+            </el-form>
+            <div style="display: flex">
+                <el-card class="box-card" style="width: 300px;margin-left: 50px;">
+                    <div slot="header" class="clearfix">
+                        <span>结果</span>
+                    </div>
+                    <div class="text item" v-if="res.status">
+                        status：{{res.status}}
+                    </div>
+                    <div class="text item" v-if="res.data">
+                        data：{{res.data}}
+                    </div>
+                    <div class="text item" v-if="res.error">
+                        error：{{res.error}}
+                    </div>
+                </el-card>
+            </div>
+        </el-main>
+    </el-container>
+</div>
 </body>
 <script>
     axios.defaults.baseURL = 'http://127.0.0.1:8085'; // 设置域名
-    axios.defaults.withCredentials = true; // 跨域请求
+    axios.defaults.withCredentials = true;  // 跨域请求
     // axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
     axios.defaults.headers['Content-Type'] = 'application/x-www-form-urlencoded'; // 设置数据传输类型
-    var app = new Vue({
+    var app=new Vue({
         el: '#app',
-        data() {
+        data(){
             return {
-                visible: false,
-                options: [{
-                    value: 'ack',
-                    label: 'ack'
-                }, {
-                    value: 'add',
-                    label: 'add'
-                }, {
-                    value: 'read',
-                    label: 'read'
-                }, {
-                    value: 'readgroup',
-                    label: 'readgroup'
-                }, {
-                    value: 'createqueue',
-                    label: 'createqueue'
-                }, {
-                    value: 'creategroup',
-                    label: 'creategroup'
-                }],
-                res: {},
-                call: '',
+                visible: false ,
+                options:[
+                    {
+                        value:'ack',
+                        label:'ack'
+                    },{
+                        value:'add',
+                        label:'add'
+                    },{
+                        value:'read',
+                        label:'read'
+                    },{
+                        value:'readgroup',
+                        label:'readgroup'
+                    },{
+                        value:'createqueue',
+                        label:'createqueue'
+                    },{
+                        value:'creategroup',
+                        label:'creategroup'
+                    }
+                ],
+                res:{status:'',data:'',error:''},
+                call:'',
                 add_form: {
-                    call: this.call,
-                    params: {
-                        queue: 'Queue',
-                        data: 'Message'
+                    call:this.call,
+                    params:{
+                        queue:'Queue',
+                        data:'Message'
                     }
                 },
-                read_form: {
-                    call: this.call,
+                read_form:{
+                    call:this.call,
                     params: {
-                        queue: 'Queue', // 队列名
-                        message_id: 0, // 大于message_id的消息
-                        count: 1, // 获取的消息数量，默认1
-                        block: -1, // -1表示无限阻塞，0表示立刻返回，任意正整数，表示阻塞时长，默认-1
+                            queue:'Queue', // 队列名
+                            message_id:0, // 大于message_id的消息
+                            count:1, // 获取的消息数量，默认1
+                            block:-1, // -1表示无限阻塞，0表示立刻返回，任意正整数，表示阻塞时长，默认-1
                     }
                 },
-                ack_form: {
-                    call: this.call,
+                ack_form:{
+                    call:this.call,
                     params: {
-                        queue: "Queue", // 队列名
-                        group: "Group",
-                        mkqueue: false // 如果没有该消息队列，是否创建一个新的消息队列，默认是false
+                            queue:"Queue", // 队列名
+                            group:"Group",
+                            message_id: 0 // 如果没有该消息队列，是否创建一个新的消息队列，默认是false
                     }
                 },
-                readgroup_form: {
-                    call: this.call,
-                    params: {
-                        queue: "Queue", // 队列名
-                        group: "Group", // 消费者组名
-                        consumer: "Consumer", // 消费者名
-                        message_id: 0, // 大于message_id的消息
-                        count: 1, // 获取的消息数量，默认1
-                        block: -1, // -1表示无限阻塞，0表示立刻返回，任意正整数，表示阻塞时长，默认-1
+                readgroup_form:{
+                    call:this.call,
+                    params:{
+                        queue:"Queue", // 队列名
+                        group:"Group", // 消费者组名
+                        consumer:"Consumer", // 消费者名
+                        message_id:0, // 大于message_id的消息
+                        count:1, // 获取的消息数量，默认1
+                        block:-1, // -1表示无限阻塞，0表示立刻返回，任意正整数，表示阻塞时长，默认-1
                     }
                 },
-                createqueue_form: {
-                    call: this.call,
-                    params: {
-                        queue: "Queue", // 队列名
+                createqueue_form:{
+                    call:this.call,
+                    params:{
+                        queue:"Queue", // 队列名
                     }
                 },
-                creategroup_form: {
-                    call: this.call,
-                    params: {
-                        group: "Group", // 消费者组名
+                creategroup_form:{
+                    call:this.call,
+                    params:{
+                        group:"Group", // 消费者组名
                     }
                 }
             }
         },
-        methods: {
-            add() {
-                this.add_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.add_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("add");
-            },
-            ack() {
-                this.ack_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.ack_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("ack");
-            },
-            read() {
-                this.read_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.read_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("read");
-            },
-            readgroup() {
-                this.readgroup_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.readgroup_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("readgroup");
-            },
-            creategroup() {
-                this.creategroup_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.creategroup_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("creategroup");
-            },
-            createqueue() {
-                this.createqueue_form.call = this.call;
-                axios({ // 进行post请求
-                    method: 'post',
-                    url: '/server',
-                    data: this.createqueue_form
-                }).then(function(res) {
-                    this.res = res;
-                })
-                console.log("createqueue");
-            }
+        methods:{
+          add(){
+              this.add_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.add_form
+              }).then(function (res){
+                    this.res=res;
+              })
+            console.log("add");
+          },
+          ack(){
+              this.ack_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.ack_form
+              }).then(function (res){
+                  this.res=res;
+              })
+              console.log("ack");
+          },
+          read(){
+              this.read_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.read_form
+              }).then(function (res){
+                  this.res=res;
+              })
+              console.log("read");
+          },
+          readgroup(){
+              this.readgroup_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.readgroup_form
+              }).then(function (res){
+                  this.res=res;
+              })
+              console.log("readgroup");
+          },
+          creategroup(){
+              this.creategroup_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.creategroup_form
+              }).then(function (res){
+                  this.res=res;
+              })
+              console.log("creategroup");
+          },
+          createqueue(){
+              this.createqueue_form.call=this.call;
+              axios({   // 进行post请求
+                  method: 'post',
+                  url: '/server',
+                  data:this.createqueue_form
+              }).then(function (res){
+                  this.res=res;
+              })
+              console.log("createqueue");
+          }
         }
     })
 </script>
-
 </html>
