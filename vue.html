@@ -239,7 +239,10 @@
               axios({   // 进行post请求
                   method: 'post',
                   url: '/server',
-                  data:this.ack_form}),
+                  data:this.ack_form
+              }).then(function (res){
+                  this.res=res;
+              })
               console.log("ack");
           },
           read(){
@@ -247,7 +250,10 @@
               axios({   // 进行post请求
                   method: 'post',
                   url: '/server',
-                  data:this.read_form}),
+                  data:this.read_form
+              }).then(function (res){
+                  this.res=res;
+              })
               console.log("read");
           },
           readgroup(){
@@ -255,7 +261,10 @@
               axios({   // 进行post请求
                   method: 'post',
                   url: '/server',
-                  data:this.readgroup_form}),
+                  data:this.readgroup_form
+              }).then(function (res){
+                  this.res=res;
+              })
               console.log("readgroup");
           },
           creategroup(){
@@ -263,7 +272,10 @@
               axios({   // 进行post请求
                   method: 'post',
                   url: '/server',
-                  data:this.creategroup_form}),
+                  data:this.creategroup_form
+              }).then(function (res){
+                  this.res=res;
+              })
               console.log("creategroup");
           },
           createqueue(){
@@ -271,7 +283,10 @@
               axios({   // 进行post请求
                   method: 'post',
                   url: '/server',
-                  data:this.createqueue_form}),
+                  data:this.createqueue_form
+              }).then(function (res){
+                  this.res=res;
+              })
               console.log("createqueue");
           }
         }
