@@ -28,12 +28,12 @@ func Encode(message string) ([]byte, error) {
 	var length = int32(len(message))
 	var pkg = new(bytes.Buffer)
 	// 写入消息头
-	err := binary.Write(pkg, binary.LittleEndian, length)
+	err := binary.Write(pkg, binary.BigEndian, length)
 	if err != nil {
 		return nil, err
 	}
 	// 写入包体
-	err = binary.Write(pkg, binary.LittleEndian, []byte(message))
+	err = binary.Write(pkg, binary.BigEndian, []byte(message))
 	if err != nil {
 		return nil, err
 	}
@@ -44,23 +44,28 @@ func Decode(reader *bufio.Reader) (string, error) {
 	lengthByte, _ := reader.Peek(4)
 	lengthBuff := bytes.NewBuffer(lengthByte)
 	var length int32
-	err := binary.Read(lengthBuff, binary.LittleEndian, &length)
+	err := binary.Read(lengthBuff, binary.BigEndian, &length)
 	if err != nil {
-		return "", err
+		fmt.Printf("%v\n", err)
+		return `{"code":17,"error":"bytes to int error"}`, err
 	}
 	// buffer返回缓冲中现有的可读的字节数
 	for int32(reader.Buffered()) < length+4 {
-		return "", err
+		return `{"code":27,"error":"buffered size less than package size"}`, err
 	}
 	// 读取真正的数据
 	pack := make([]byte, int(4+length))
 	_, err = reader.Read(pack)
 	if err != nil {
-		return "", err
+		return `{"code":37,"error":"read package error"}`, err
 	}
 	return string(pack[4:]), nil
 }
 func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		return
+	}
+	w.Header().Set("content-type", "application/json")
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Printf("ioutil read error:%v\n", err)
@@ -77,7 +82,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("Encode失败，err:", err)
 	}
-	conn, err := net.Dial("tcp", "127.0.0.1:20000")
+	conn, err := net.Dial("tcp", "127.0.0.1:18057")
 	if err != nil {
 		fmt.Printf("dial failed err:%v\n", err)
 		return
@@ -102,7 +107,7 @@ func ListenAndServe() {
 	files := http.FileServer(http.Dir("./"))
 	http.Handle("/", files)
 	http.HandleFunc("/server", ServeHTTP)
-	err := http.ListenAndServe("localhost:8085", nil)
+	err := http.ListenAndServe(":8085", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe", err)
 	}

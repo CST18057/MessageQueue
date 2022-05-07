@@ -26,29 +26,43 @@ const unordered_map<string, function<void(const JsonDict &obj, Scheduler &schedu
     {
         {"add", [](const JsonDict &obj, Scheduler &scheduler) -> void
          {
-             string &queue = obj.at("queue")->asString();
-             string &data = obj.at("data")->asString();
-             scheduler.addMessage(queue, data);
+            string &queue = obj.at("queue")->asString();
+            string &data = obj.at("data")->asString();
+            scheduler.addMessage(queue, data);
          }},
         {"read", [](const JsonDict &obj, Scheduler &scheduler) -> void
          {
-             string &queue = obj.at("queue")->asString();
-             int message_id = obj.at("message_id")->asInt();
-             int count = obj.at("count")->asInt();
-             int block = obj.at("block")->asInt();
-             scheduler.readMessage(queue, message_id, count, block);
+            string &queue = obj.at("queue")->asString();
+            int message_id = obj.at("message_id")->asInt();
+            int count = obj.at("count")->asInt();
+            int block = obj.at("block")->asInt();
+            scheduler.readMessage(queue, message_id, count, block);
+            
          }},
         {"readgroup", [](const JsonDict &obj, Scheduler &scheduler) -> void {
-
+            string &queue = obj.at("queue")->asString();
+            string &group = obj.at("group")->asString();
+            string &consumer = obj.at("consumer")->asString();
+            int message_id = obj.at("message_id")->asInt();
+            int count = obj.at("count")->asInt();
+            int block = obj.at("block")->asInt();
+            scheduler.readMessageGroup(queue, group, consumer, message_id, count, block);
          }},
         {"createqueue", [](const JsonDict &obj, Scheduler &scheduler) -> void {
-
+            string &queue = obj.at("queue")->asString();
+            scheduler.createQueue(queue);
          }},
         {"creategroup", [](const JsonDict &obj, Scheduler &scheduler) -> void {
-
+            string &queue = obj.at("queue")->asString();
+            string &group = obj.at("group")->asString();
+            bool mkqueue = obj.at("mkqueue")->asBool();
+            scheduler.createGroup(queue, group, mkqueue);
          }},
         {"ack", [](const JsonDict &obj, Scheduler &scheduler) -> void {
-
+            string &queue = obj.at("queue")->asString();
+            string &group = obj.at("group")->asString();
+            int message_id = obj.at("message_id")->asInt();
+            scheduler.ackMessage(queue, group, message_id);
          }},
         {"delqueue", [](const JsonDict &obj, Scheduler &scheduler) -> void {
 
@@ -163,11 +177,12 @@ int ClientBuf::sendWriteBuf()
 
 std::string ClientBuf::getMessage()
 {
+    // 使用大端序
     if (readBuf.size() <= HEADER_SIZE)
         return "";
     int datasize = 0;
     for (int i = 0; i < HEADER_SIZE; i++)
-        datasize = datasize << 8 | readBuf[i];
+        datasize = (datasize << 8) | readBuf[i];
     if (readBuf.size() < HEADER_SIZE + datasize)
         return "";
     for (int i = 0; i < HEADER_SIZE; i++)
@@ -250,20 +265,19 @@ void Scheduler::setClient(int clientFd)
 void Scheduler::response(string result, int clientFd)
 {
 #ifdef __linux__
-    // modEvent(epollFd, clientFd, ALL_OP);
+    modEvent(epollFd, clientFd == -1 ? nowClient : clientFd , ALL_OP);
 #else
 #endif
-    cout << result << endl;
-
-// #ifdef DEBUG_JUDGE
-//     cout << result << endl;
-// #else
-//     if(clientFd == -1)
-//         clients[nowClient].addWriteBuf(result);
-//     else
-//         clients[clientFd].addWriteBuf(result);
-
-// #endif
+    // 测试用
+    // cout << result << endl;
+    if(clientFd == -1)
+    {
+        clients[nowClient].addWriteBuf(result);
+    }
+    else
+    {
+        clients[clientFd].addWriteBuf(result);
+    }
 }
 
 string Scheduler::packageMessage(int code, const string &data)
@@ -311,10 +325,15 @@ void Scheduler::readMessage(const string &queue,int MessageId, int count, int bl
         return;
     }
     MessageQueue &q = it->second;
-    int messageId = q.messagePool.getUpperBoundMessageId(MessageId);
+    int messageId = q.messagePool.getLowerBoundMessageId(MessageId);
     // 如果没找到
     if (messageId == -1)
     {
+        if(block == 0)
+        {
+            response(packageMessage(0, JsonObject(JsonArray{})));
+            return;
+        }
         cout << "join blockLink" << endl;
         // 加入阻塞消费者队列
         ull nowTime = getTimeStamp();
@@ -326,7 +345,21 @@ void Scheduler::readMessage(const string &queue,int MessageId, int count, int bl
     }
     else
     {
-        response(packageMessage(0,q.messagePool.get(messageId).data));
+        vector<int> mids = q.messagePool.rangeId(MessageId, INT_MAX, count);
+        JsonObject vj(
+            JsonArray{}
+        );
+        for (int mid : mids)
+            vj.asArray().push_back(
+                JSONOBJECT(
+                    JsonObject(
+                        JsonDict{
+                            {"id",JSONOBJECT(mid)},
+                            {"message",JSONOBJECT(q.messagePool.get(mid).data)}
+                        }
+                    )
+            ));
+        response(packageMessage(CMD_OK,vj));
     }
 }
 void Scheduler::readMessageGroup(const string &queue, const string &group, const string &consumer,int MessageId, int count, int block)
@@ -390,7 +423,15 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         if(mit == q.Messages.end())
             break;
         g.lastId = max(g.lastId, *mit);
-        vj.asArray().push_back(JSONOBJECT(q.messagePool.get(*mit).data));
+        vj.asArray().push_back(
+                JSONOBJECT(
+                    JsonObject(
+                        JsonDict{
+                            {"id",JSONOBJECT(*mit)},
+                            {"message",JSONOBJECT(q.messagePool.get(*mit).data)}
+                        }
+                    )
+            ));
         mit++;
     }
     // needWriteClients.insert(nowClient);
@@ -409,9 +450,10 @@ void Scheduler::addMessage(const string &queue, const string& data)
     msg.data = data;
     int messageId = q.messagePool.put(msg);
     q.Messages.insert(messageId);
+    response(packageMessage(CMD_OK,"add message success"));
     vector<string> noWaitGroups;
-    cout << "add message ok:" << messageId << endl;
-    cout << "message size:" << q.messagePool.size() << endl;
+    // cout << "add message ok:" << messageId << endl;
+    // cout << "message size:" << q.messagePool.size() << endl;
     for(string group : q.waitGroups)
     {
         ConsumerGroup &g = q.groups[group];
@@ -575,7 +617,15 @@ void Scheduler::parse(int clientFd, const string &s)
     JsonObjectPtr obj = JsonObject::decoder(s);
     string &call = obj->asDict().at("call")->asString();
     JsonDict &params = obj->asDict().at("params")->asDict();
-    callFunName.at(call)(params, *this);
+    try
+    {
+        callFunName.at(call)(params, *this);
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        response(packageMessage(TYPE_ERROR, e.what()));
+    }
 }
 
 ull Scheduler::awakeTime()
@@ -846,8 +896,9 @@ void polling(int serverFd, Scheduler& scheduler)
     {
         // 即使没有标识符事件，仍然会唤醒并且将超时consumer返回
         // epollDelayTime = 当前block队列中的最早时间
+        epollDelayTime = -1;
         int eventCount = epoll_wait(epfd, events, MAXSIZE, epollDelayTime);
-        // printf("events num:%d\n", eventCount);
+        printf("events num:%d\n", eventCount);
         if (eventCount < 0)
         {
             printf("epoll_ctl Error: %s (errno: %d)\n", strerror(errno), errno);
@@ -855,20 +906,20 @@ void polling(int serverFd, Scheduler& scheduler)
         }
         else if (eventCount == 0)
         {
-            // printf("no data!\n");
+            printf("no data!\n");
         }
         else
         {
             for (int i = 0; i < eventCount; i++)
             {
                 int clientFd = events[i].data.fd;
-                // cout << "eventFd:" << clientFd << endl;
+                cout << "eventFd:" << clientFd << endl;
                 //有请求链接
                 if (clientFd == serverFd)
                 {
                     cout << "建立连接" << endl;
                     int clientFd;
-                    while ((clientFd = accept(serverFd, (struct sockaddr *)NULL, NULL)) > 0)
+                    if ((clientFd = accept(serverFd, (struct sockaddr *)NULL, NULL)) > 0)
                     {
                         printf("accept Client[%d]\n", clientFd);
                         setnonblocking(clientFd);
@@ -927,10 +978,8 @@ void polling(int serverFd, Scheduler& scheduler)
     }
 }
 
-#endif
-
 //windows
-#if defined(WIN32) || defined(WIN64)
+#elif defined(_WIN32) || defined(_WIN64)
 
 int createClient()
 {
@@ -950,6 +999,10 @@ int sendMsg(int targetFd, char buf[], int n)
 }
 
 void closeSocket(int socketFd)
+{
+}
+
+void polling(int serverFd, Scheduler& scheduler)
 {
 }
 

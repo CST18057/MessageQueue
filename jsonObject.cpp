@@ -461,7 +461,7 @@ JsonObjectPtr JsonObject::findNextJsonObeject(const std::string &s, int &sta, in
     if (now == end)
         return JSONOBJECT(JSONINVALID);
     char c = s[sta];
-    // std::cout << "start char:" << s[sta] << endl;
+    // std::cout << "start char:" << c << endl;
     JsonObjectPtr temp = nullptr;
     if (c == '{')
         return findNextDict(s, sta, end);
@@ -489,6 +489,7 @@ JsonObjectPtr JsonObject::findNextJsonObeject(const std::string &s, int &sta, in
 
 JsonObjectPtr JsonObject::findNextNumber(const std::string &s, int &sta, int &end)
 {
+    // cout << "number" << endl;
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
         return JSONOBJECT(JSONINVALID);
@@ -526,6 +527,7 @@ JsonObjectPtr JsonObject::findNextNumber(const std::string &s, int &sta, int &en
 }
 JsonObjectPtr JsonObject::findNextBool(const std::string &s, int &sta, int &end)
 {
+    // cout << "bool" << endl;
     int now = firstNonEmpty(s, sta, end);
     if (now >= end)
         return JSONOBJECT(JSONINVALID);
@@ -534,7 +536,7 @@ JsonObjectPtr JsonObject::findNextBool(const std::string &s, int &sta, int &end)
         sta += 4;
         return JSONOBJECT(true);
     }
-    else if (end - sta >= 5 && s.substr(sta, 4) == "false")
+    else if (end - sta >= 5 && s.substr(sta, 5) == "false")
     {
         sta += 5;
         return JSONOBJECT(false);
@@ -638,7 +640,7 @@ JsonObjectPtr JsonObject::findNextDict(const std::string &s, int &sta, int &end)
         }
         // std::cout << "find string key" << endl;
         temp = findNextString(s, sta, end);
-        // std::cout << "get key:" << temp.asString() << endl;
+        // std::cout << "get key:" << temp->asString() << endl;
         if (temp->getType() == JSONINVALID)
         {
             for (pair<string, JsonObjectPtr > p : mp)
@@ -655,7 +657,8 @@ JsonObjectPtr JsonObject::findNextDict(const std::string &s, int &sta, int &end)
         sta = skipEmptyOneChar(s, sta, end, ':');
         // std::cout << "find value" << endl;
         temp = findNextJsonObeject(s, sta, end);
-        // std::cout << "get value:" << temp.getTypeStr() << endl;
+        // std::cout << "get value:" << temp->getTypeStr() << endl;
+        // cout << temp->json() << endl;
         if (temp->getType() == JSONINVALID)
         {
             for (pair<string, JsonObjectPtr > p : mp)
@@ -674,13 +677,18 @@ JsonObjectPtr JsonObject::findNextDict(const std::string &s, int &sta, int &end)
 }
 JsonObjectPtr JsonObject::findNextString(const std::string &s, int &sta, int &end)
 {
+    // cout << "string" << endl;
     int now = firstNonEmpty(s, sta, end);
     // std::cout << "string:" << now << "|" << s[now] << endl;
     if (now >= end)
         return JSONOBJECT(JSONINVALID);
     sta = now;
     if (s[sta] != '\"')
+    {
+        // printf("invalid char : %c\n", s[sta]);
+        // cout << s.substr(sta) << endl;
         reportError("type error:string,invalid json in char:{%d->%d}", sta, end);
+    }
     int l = now + 1, r = l;
     while (r < end)
     {

@@ -30,6 +30,7 @@
 #define GROUP_BUSY 12
 #define CONSUMER_BUSY 21
 #define NONE_MESSAGE 31
+#define TYPE_ERROR 41
 using namespace std;
 using ull = unsigned long long;
 using uint = unsigned int;
@@ -362,7 +363,7 @@ int recvMsg(int targetFd, char buf[]);
 int setnonblocking(int socketFd);
 
 
-void polling(int serverFdm, Scheduler scheduler);
+void polling(int serverFd, Scheduler &scheduler);
 
 void closeSocket(int socketFd);
 

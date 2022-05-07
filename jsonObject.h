@@ -24,6 +24,7 @@ using JsonObjectPtr = std::shared_ptr<JsonObject>;
 using JsonDict = std::unordered_map<std::string, JsonObjectPtr>;
 using JsonArray = std::vector<JsonObjectPtr>;
 #define JSONOBJECT(x) std::make_shared<JsonObject>(x)
+#define UPJSONOBJECT(x) std::make_shared<JsonObject>(JsonObject(x))
 
 class JsonObject
 {
