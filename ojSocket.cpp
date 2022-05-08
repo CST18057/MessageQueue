@@ -1,4 +1,5 @@
 #include "ojSocket.h"
+#include "defer.h"
 using namespace std;
 #include <iostream>
 #include <string>
@@ -423,6 +424,7 @@ void Scheduler::readMessageGroup(const string &queue, const string &group, const
         if(mit == q.Messages.end())
             break;
         g.lastId = max(g.lastId, *mit);
+        g.pendingMessages.insert(*mit);
         vj.asArray().push_back(
                 JSONOBJECT(
                     JsonObject(
@@ -609,6 +611,7 @@ void Scheduler::ackMessage(const string &queue, const string &group, int Message
     }
     g.pendingMessages.erase(mid);
     g.messageInfos[g.lastId].stop();
+    response(packageMessage(CMD_OK,"ack message success:" + to_string(*mid)));
 }
 void Scheduler::parse(int clientFd, const string &s)
 {
@@ -878,6 +881,8 @@ void closeSocket(int socketFd)
 
 void polling(int serverFd, Scheduler& scheduler)
 {
+    defer(
+        close(serverFd););
     setnonblocking(serverFd);
     struct epoll_event ev, events[MAXSIZE];
     int epfd, nCounts; //epfd:epoll实例句柄, nCounts:epoll_wait返回值

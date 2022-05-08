@@ -11,141 +11,141 @@
 </head>
 
 <body>
-<div id="app">
-    <el-container>
-        <el-header>
-            <el-page-header title="" content="详情页面"></el-page-header>
-        </el-header>
-        <el-main style="display: flex">
-            <el-form style="margin-left: 45px;">
-                <el-form-item label="指令">
-                    <el-select v-model="call" placeholder="请选择">
-                        <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value">
-                        </el-option>
-                    </el-select>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="add_form" label-width="80px" v-if="call=='add'">
-                <!---add表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="add_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消息">
-                    <el-input type="textarea" v-model="add_form.params.data" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="add()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="read_form" label-width="80px" v-if="call=='read'">
-                <!---read表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="read_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消息ID">
-                    <el-input type="number" v-model.number="read_form.params.message_id" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="获取消息的数量">
-                    <el-input type="number" v-model.number="read_form.params.count" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="是否阻塞">
-                    <el-input type="number" v-model.number="read_form.params.block" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="read()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="ack_form" label-width="80px" v-if="call=='ack'">
-                <!---ack表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="ack_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消费者组">
-                    <el-input type="textarea" v-model="ack_form.params.group" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消息ID">
-                    <el-input type="number" v-model.number="ack_form.params.message_id" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="ack()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="readgroup_form" label-width="80px" v-if="call=='readgroup'">
-                <!---readgroup表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="readgroup_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消费者组">
-                    <el-input type="textarea" v-model="readgroup_form.params.group" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消费者">
-                    <el-input type="textarea" v-model="readgroup_form.params.consumer" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消息ID">
-                    <el-input type="number" v-model.number="readgroup_form.params.message_id" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="获取消息的数量">
-                    <el-input type="number" v-model.number="readgroup_form.params.count" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="是否阻塞">
-                    <el-input type="number" v-model.number="readgroup_form.params.block" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="readgroup()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="createqueue_form" label-width="80px" v-if="call=='createqueue'">
-                <!---createqueue表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="createqueue()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <el-form ref="form" :model="creategroup_form" label-width="80px" v-if="call=='creategroup'">
-                <!---creategroup表单-->
-                <el-form-item label="队列名">
-                    <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="消费者组">
-                    <el-input v-model="creategroup_form.params.group" style="width: 500px;"></el-input>
-                </el-form-item>
-                <el-form-item label="创建队列">
-                    <el-radio-group v-model="createqueue_form.params.mkqueue" @change="change()">
-                        <el-radio  :label="true" style="width: 500px;">是</el-radio>
-                        <el-radio  :label="false" style="width: 500px;">否</el-radio>
-                    </el-radio-group>
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="creategroup()">提交</el-button>
-                    <el-button>取消</el-button>
-                </el-form-item>
-            </el-form>
-            <div style="display: flex">
-                <el-card class="box-card" style="width: 300px;margin-left: 50px;">
-                    <div slot="header" class="clearfix">
-                        <span>结果</span>
-                    </div>
-                    <div class="text item">
-                        {{res.code}}
-                    </div>
-                    <div class="text item">
-                        {{res.data}}
-                    </div>
-                    <div class="text item">
-                        {{res.error}}
-                    </div>
-                </el-card>
-            </div>
-        </el-main>
-    </el-container>
-</div>
+    <div id="app">
+        <el-container>
+            <el-header>
+                <el-page-header title="" content="详情页面"></el-page-header>
+            </el-header>
+            <el-main style="display: flex">
+                <el-form style="margin-left: 45px;">
+                    <el-form-item label="指令">
+                        <el-select v-model="call" placeholder="请选择">
+                            <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value">
+                            </el-option>
+                        </el-select>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="add_form" label-width="80px" v-if="call=='add'">
+                    <!---add表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="add_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消息">
+                        <el-input type="textarea" v-model="add_form.params.data" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="add()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="read_form" label-width="80px" v-if="call=='read'">
+                    <!---read表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="read_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消息ID">
+                        <el-input type="number" v-model.number="read_form.params.message_id" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="获取消息的数量">
+                        <el-input type="number" v-model.number="read_form.params.count" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="是否阻塞">
+                        <el-input type="number" v-model.number="read_form.params.block" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="read()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="ack_form" label-width="80px" v-if="call=='ack'">
+                    <!---ack表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="ack_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消费者组">
+                        <el-input type="textarea" v-model="ack_form.params.group" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消息ID">
+                        <el-input type="number" v-model.number="ack_form.params.message_id" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="ack()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="readgroup_form" label-width="80px" v-if="call=='readgroup'">
+                    <!---readgroup表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="readgroup_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消费者组">
+                        <el-input type="textarea" v-model="readgroup_form.params.group" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消费者">
+                        <el-input type="textarea" v-model="readgroup_form.params.consumer" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消息ID">
+                        <el-input type="number" v-model.number="readgroup_form.params.message_id" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="获取消息的数量">
+                        <el-input type="number" v-model.number="readgroup_form.params.count" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="是否阻塞">
+                        <el-input type="number" v-model.number="readgroup_form.params.block" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="readgroup()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="createqueue_form" label-width="80px" v-if="call=='createqueue'">
+                    <!---createqueue表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="createqueue()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <el-form ref="form" :model="creategroup_form" label-width="80px" v-if="call=='creategroup'">
+                    <!---creategroup表单-->
+                    <el-form-item label="队列名">
+                        <el-input v-model="createqueue_form.params.queue" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="消费者组">
+                        <el-input v-model="creategroup_form.params.group" style="width: 500px;"></el-input>
+                    </el-form-item>
+                    <el-form-item label="创建队列">
+                        <el-radio-group v-model="creategroup_form.params.mkqueue" @change="change()">
+                            <el-radio :label="true" style="width: 500px;">是</el-radio>
+                            <el-radio :label="false" style="width: 500px;">否</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item>
+                        <el-button type="primary" @click="creategroup()">提交</el-button>
+                        <el-button>取消</el-button>
+                    </el-form-item>
+                </el-form>
+                <div style="display: flex">
+                    <el-card class="box-card" style="width: 300px;margin-left: 50px;">
+                        <div slot="header" class="clearfix">
+                            <span>结果</span>
+                        </div>
+                        <div class="text item">
+                            {{res.code}}
+                        </div>
+                        <div class="text item">
+                            {{res.data}}
+                        </div>
+                        <div class="text item">
+                            {{res.error}}
+                        </div>
+                    </el-card>
+                </div>
+            </el-main>
+        </el-container>
+    </div>
 </body>
 <script>
     axios.defaults.baseURL = 'http://localhost:8085'; // 设置域名
@@ -300,7 +300,7 @@
                 })
                 console.log("createqueue");
             },
-            change(){
+            change() {
                 this.$forceUpdate();
             }
         }
