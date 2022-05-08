@@ -452,7 +452,7 @@ void Scheduler::addMessage(const string &queue, const string& data)
     msg.data = data;
     int messageId = q.messagePool.put(msg);
     q.Messages.insert(messageId);
-    response(packageMessage(CMD_OK,"add message success"));
+    response(packageMessage(CMD_OK,JsonObject(messageId)));
     vector<string> noWaitGroups;
     // cout << "add message ok:" << messageId << endl;
     // cout << "message size:" << q.messagePool.size() << endl;

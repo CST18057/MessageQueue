@@ -15,7 +15,7 @@
 }
 // 返回结果
 {
-    "status":0,
+    "code":0,
     "data": 123, // 返回这条消息对应的id
     "error":"",
 }
@@ -40,8 +40,8 @@
 }
 // 返回结果
 {
-    "status":0,
-    "data": ["message1","message2"], // 返回多条消息组成的列表
+    "code":0,
+    "data": [ { "message": "Message1", "id": 1 } ], // 返回多条消息组成的列表
     "error":"",
 }
 ```
@@ -62,15 +62,15 @@
             "queue":"Queue", // 队列名
             "group":"Group", // 消费者组名
             "consumer":"Consumer", // 消费者名
-            "message_id":0, // 大于message_id的消息
+            "message_id":0, // 大于message_id的消息，如果使用-1则表示为获取当前消费者组的最新未被获取过的消息
             "count":1, // 获取的消息数量，默认1
             "block":0, // -1表示无限阻塞，0表示立刻返回，任意正整数，表示阻塞时长，默认-1
         }
 }
 // 返回结果
 {
-    "status":0,
-    "data": ["message1","message2"], // 返回多条消息组成的列表
+    "code":0,
+    "data": [ { "message": "Message1", "id": 1 } ], // 返回多条消息组成的列表
     "error":"",
 }
 ```
@@ -92,8 +92,8 @@
 }
 // 返回结果
 {
-    "status":0,
-    "data": true, // 返回操作是否成功
+    "code":0,
+    "data": "ack message success:1", // 返回操作是否成功
     "error":"",
 }
 ```
@@ -111,7 +111,7 @@
 }
 // 返回结果
 {
-    "status":0,
+    "code":0,
     "data": "create queue success", // 返回操作是否成功
     "error":"",
 }
@@ -128,13 +128,13 @@
     "params":
         {
             "queue":"Queue", // 队列名
-            "group":"Group",
+            "group":"Group", // 消费者组名
             "mkqueue": true // 如果没有该消息队列，是否创建一个新的消息队列，默认是false
         }
 }
 // 返回结果
 {
-    "status":0,
+    "code":0,
     "data": true, // 返回操作是否成功
     "error":"",
 }
@@ -142,8 +142,8 @@
 - 服务器返回命令统一格式
 ```json
 {
-    "status":0, // 返回0表示正常返回结果，若非0则意味存在错误
+    "code":0, // 返回0表示正常返回结果，若非0则意味存在错误
     "data":{}, // 根据实际的命令返回相应的格式
-    "error":"",// 若status码不为0，则返回相应的错误
+    "error":"",// 若code码不为0，则返回相应的错误
 }
 ```
